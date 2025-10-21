@@ -12,16 +12,17 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(glfw)
 
+
 #include and link glfw 
 add_executable(${PROJECT_NAME} src/main.cpp)
 target_link_libraries(${PROJECT_NAME} glfw)
 
 if ( CMAKE_COMPILER_IS_GNUCC )
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
 endif()
 
 if ( MSVC )
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -WX -W4 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_INTERNAL=1 -DAPP_SLOW=1 -DGAME_WIN32=1 -FC -Z7")
 endif()
 
 set_target_properties(${PROJECT_NAME} 
