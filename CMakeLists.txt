@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.6)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED)
 project(glfw_template CXX)
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/CMake")
 
 # Download glfw
 include(FetchContent)
@@ -11,11 +12,22 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/jasoncnm/glfw.git
 )
 FetchContent_MakeAvailable(glfw)
+FetchContent_Declare(
+    glm
+    GIT_REPOSITORY https://github.com/jasoncnm/glm.git
+)
+FetchContent_MakeAvailable(glm)
 
+find_package (Vulkan REQUIRED)
 
-#include and link glfw 
+#Setup Vulkan include and link directory
+include_directories($ENV{VULKAN_SDK}/Include)
+link_directories($ENV{VULKAN_SDK}/Lib)
+
+#include and link  
 add_executable(${PROJECT_NAME} src/main.cpp)
-target_link_libraries(${PROJECT_NAME} glfw)
+target_link_libraries(${PROJECT_NAME} glfw glm)
+target_link_libraries(${PROJECT_NAME} vulkan-1.lib)
 
 if ( CMAKE_COMPILER_IS_GNUCC )
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")

@@ -1,3 +1,3 @@
 # GLFW Desktop Application Templates
 
-A desktop application template using GLFW as Platform Layer
+A desktop application template using GLFW and Vulkan
