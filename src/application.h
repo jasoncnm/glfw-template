@@ -8,17 +8,29 @@
    ======================================================================== */
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+#include <optional>
 
 
 //====================================================
 //      NOTE: Application Structs
 //====================================================
-
 struct Application
 {
     GLFWwindow * m_window;
     VkInstance m_instance;
+    VkPhysicalDevice m_device = VK_NULL_HANDLE;    
+    
     VkDebugUtilsMessengerEXT m_debugMessenger;
+};
+
+struct QueueFamilyIndices
+{
+    std::optional<uint32> m_graphicsFamily;
+
+    bool IsComplete()
+    {
+        return m_graphicsFamily.has_value();
+    }
 };
 
 //====================================================

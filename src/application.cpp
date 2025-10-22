@@ -10,6 +10,30 @@
 //====================================================
 //      NOTE: Application Functions
 //====================================================
+QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
+{
+    QueueFamilyIndices indices;
+
+    uint32_t queueFamilyCount = 0;
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, nullptr);
+
+    std::vector<VkQueueFamilyProperties> queueFamilies(queueFamilyCount);
+    vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies.data());
+
+    for (int i = 0; i < queueFamilies.size(); i++)
+    {
+        const auto & queueFamily = queueFamilies[i];
+        if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
+        {
+            indices.m_graphicsFamily = i;            
+        }
+
+        if (indices.IsComplete()) break;
+    }
+    
+    return indices;
+}
+
 
 VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance,
@@ -208,10 +232,78 @@ VkInstance CreateVkInstance()
     return instance;
 }
 
+bool IsDeviceSuitable(VkPhysicalDevice device)
+{
+    VkPhysicalDeviceProperties deviceProperties;
+    vkGetPhysicalDeviceProperties(device, &deviceProperties);
+
+    VkPhysicalDeviceFeatures deviceFeatures;
+    vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
+
+    QueueFamilyIndices indices = FindQueueFamilies(device);
+    
+    bool result = indices.IsComplete();
+    
+    /*
+      ======================================== IMPORTANT===========================================
+      Current implementation only support PC with discrete GPU 
+      =============================================================================================
+      Instead of just checking if a device is suitable or not and going with the first one,
+      you could also give each device a score and pick the highest one.
+      That way you could favor a dedicated graphics card by giving it a higher score,
+      but fall back to an integrated GPU if that's the only available one. 
+      =============================================================================================
+    */
+    
+    result &= deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
+
+    if (result)
+    {
+        SM_TRACE("[SELETED_DEVICE] %s", deviceProperties.deviceName); 
+    }
+
+    return result;
+}
+
+VkPhysicalDevice PickPhysicalDevice(VkInstance instance)
+{
+    VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
+    uint32 deviceCount = 0;
+    vkEnumeratePhysicalDevices(instance, &deviceCount, nullptr);
+
+    if (!deviceCount)
+    {
+        SM_ASSERT(false, "failed to find GPUs with Vulkan support!");        
+    }
+
+    std::vector<VkPhysicalDevice> devices(deviceCount);
+    vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
+
+    for (const auto & device : devices)
+    {
+        if (IsDeviceSuitable(device))
+        {
+            physicalDevice = device;
+            break;
+        }
+    }
+
+    if (physicalDevice == VK_NULL_HANDLE)
+    {
+        SM_ASSERT(false, "failed to find a suitable GPU!");        
+    }
+
+    return physicalDevice;
+}
+
 void InitVulkan(Application & app)
 {
     app.m_instance = CreateVkInstance();
+
     SetupDebugMessenger(app.m_instance, &app.m_debugMessenger);
+
+    app.m_device = PickPhysicalDevice(app.m_instance);
 }
 
 
@@ -232,7 +324,6 @@ void MainLoop(Application & app)
     {
         glfwPollEvents();
     }
-
 }
 
 void CleanUp(Application & app)
