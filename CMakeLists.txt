@@ -3,7 +3,6 @@ cmake_minimum_required(VERSION 3.6)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED)
 project(glfw_template CXX)
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/CMake")
 
 # Download glfw
 include(FetchContent)
@@ -30,11 +29,11 @@ target_link_libraries(${PROJECT_NAME} glfw glm)
 target_link_libraries(${PROJECT_NAME} vulkan-1.lib)
 
 if ( CMAKE_COMPILER_IS_GNUCC )
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -DAPP_SLOW=1")
 endif()
 
 if ( MSVC )
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_INTERNAL=1 -DAPP_SLOW=1 -DGAME_WIN32=1 -FC -Z7")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_SLOW=1 -FC -Z7")
 endif()
 
 set_target_properties(${PROJECT_NAME} 

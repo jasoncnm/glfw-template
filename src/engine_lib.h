@@ -35,9 +35,28 @@
 #define MB(x) (1024LL * KB(x))
 #define GB(x) (1024LL * MB(x))
 
+#define ArrayCount(arr) (sizeof(arr) / sizeof((arr)[0]))
+
 #ifndef PI
 #define PI 3.14159265358979323846f
 #endif
+
+using int8 = int8_t;
+using int16 = int16_t;
+using int32 = int32_t;
+using int64 = int64_t;
+using bool32 = int32;
+
+using uint8 = uint8_t;
+using uint16 = uint16_t;
+using uint32 = uint32_t;
+using uint64 = uint64_t;
+
+using memory_index = size_t;
+
+using real32 = float;
+using real64 = double;
+
 
 //  ========================================================================
 // NOTE: Logging
@@ -75,7 +94,7 @@ void _log(char * prefix, char * msg, TextColor textColor, Args... args)
             "\x1b[34m", // TEXT_COLOR_BLUE,
             "\x1b[35m", // TEXT_COLOR_MAGENTA,
             "\x1b[36m", // TEXT_COLOR_CYAN,
-             "\x1b[37m", // TEXT_COLOR_WHITE,
+            "\x1b[37m", // TEXT_COLOR_WHITE,
             "\x1b[90m", // TEXT_COLOR_BRIGHT_BLACK,
             "\x1b[91m", // TEXT_COLOR_BRIGHT_RED,
             "\x1b[92m", // TEXT_COLOR_BRIGHT_GREEN,
@@ -95,18 +114,11 @@ void _log(char * prefix, char * msg, TextColor textColor, Args... args)
     puts(textBuffer);
 }
 
-#if GAME_INTERNAL
+#if APP_SLOW
 
-#define SM_TRACE(msg, ...)
-#define SM_WARN(msg, ...)
-#define SM_ERROR(msg, ...)
-#define SM_ASSERT(x, msg, ...)
-
-#else
-
-#define SM_TRACE(msg, ...) _log("Trace: ", msg, TEXT_COLOR_GREEN, ##__VA_ARGS__);
-#define SM_WARN(msg, ...) _log("Warning: ", msg, TEXT_COLOR_YELLOW, ##__VA_ARGS__);
-#define SM_ERROR(msg, ...) _log("Error: ", msg, TEXT_COLOR_RED, ##__VA_ARGS__);
+#define SM_TRACE(msg, ...) _log("Trace:   ", msg, TEXT_COLOR_GREEN, ##__VA_ARGS__);
+#define SM_WARN(msg, ...)  _log("Warning: ", msg, TEXT_COLOR_YELLOW, ##__VA_ARGS__);
+#define SM_ERROR(msg, ...) _log("Error:   ", msg, TEXT_COLOR_RED, ##__VA_ARGS__);
 #define SM_ASSERT(x, msg, ...)                    \
 {                                                 \
     if (!(x))                                     \
@@ -115,6 +127,13 @@ void _log(char * prefix, char * msg, TextColor textColor, Args... args)
         DEBUG_BREAK();                            \
     }                                             \
 }
+
+#else
+
+#define SM_TRACE(msg, ...)
+#define SM_WARN(msg, ...)
+#define SM_ERROR(msg, ...)
+#define SM_ASSERT(x, msg, ...)
 
 #endif
 
