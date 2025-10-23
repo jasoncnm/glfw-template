@@ -297,13 +297,61 @@ VkPhysicalDevice PickPhysicalDevice(VkInstance instance)
     return physicalDevice;
 }
 
+
+VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice)
+{
+    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+
+    VkDeviceQueueCreateInfo queueCreateInfo{};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = indices.m_graphicsFamily.value();
+    queueCreateInfo.queueCount = 1;
+
+    float queuePriority = 1.0f;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+
+    VkPhysicalDeviceFeatures deviceFeatures{};
+
+    VkDeviceCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    createInfo.pQueueCreateInfos = &queueCreateInfo;
+    createInfo.queueCreateInfoCount = 1;
+    createInfo.pEnabledFeatures = &deviceFeatures;
+    createInfo.enabledExtensionCount = 0;
+
+    if (enableValidationLayers) {
+        createInfo.enabledLayerCount = (uint32)ArrayCount(validationLayers);
+        createInfo.ppEnabledLayerNames = validationLayers;
+    } else {
+        createInfo.enabledLayerCount = 0;
+    }
+
+    
+    VkDevice device;
+    if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create logical device");
+    }
+    return device;    
+}
+
+VkQueue CreateGraphicsQueue(VkDevice & device, VkPhysicalDevice & physicalDevice)
+{
+    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+
+    VkQueue graphicsQueue;
+    vkGetDeviceQueue(device, indices.m_graphicsFamily.value(), 0, &graphicsQueue);
+
+    return graphicsQueue;
+}
+
 void InitVulkan(Application & app)
 {
     app.m_instance = CreateVkInstance();
-
     SetupDebugMessenger(app.m_instance, &app.m_debugMessenger);
-
-    app.m_device = PickPhysicalDevice(app.m_instance);
+    app.m_physicalDevice = PickPhysicalDevice(app.m_instance);
+    app.m_device = CreateLogicalDevice(app.m_physicalDevice);
+    app.m_graphicsQueue = CreateGraphicsQueue(app.m_device, app.m_physicalDevice);    
 }
 
 
@@ -317,17 +365,9 @@ void InitWindow(Application & app)
     app.m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 }
 
-// NOTE: call at each frame
-void MainLoop(Application & app)
-{
-    for ( ;!glfwWindowShouldClose(app.m_window); )
-    {
-        glfwPollEvents();
-    }
-}
-
 void CleanUp(Application & app)
 {
+    vkDestroyDevice(app.m_device, nullptr);
     if (enableValidationLayers)
     {
         DestroyDebugUtilsMessengerEXT(app.m_instance, app.m_debugMessenger, nullptr);
@@ -335,4 +375,14 @@ void CleanUp(Application & app)
     vkDestroyInstance(app.m_instance, nullptr);
     glfwDestroyWindow(app.m_window);
     glfwTerminate();
+}
+
+
+// NOTE: call at each frame
+void MainLoop(Application & app)
+{
+    for ( ;!glfwWindowShouldClose(app.m_window); )
+    {
+        glfwPollEvents();
+    }
 }
