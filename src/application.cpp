@@ -10,7 +10,7 @@
 //====================================================
 //      NOTE: Application Functions
 //====================================================
-QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
+QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice & device, const VkSurfaceKHR  & surface)
 {
     QueueFamilyIndices indices;
 
@@ -26,6 +26,13 @@ QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device)
         if (queueFamily.queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
             indices.m_graphicsFamily = i;            
+        }
+
+        VkBool32 presentSupport = false;
+        vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+        if (presentSupport)
+        {
+            indices.m_presentFamily = i;
         }
 
         if (indices.IsComplete()) break;
@@ -109,17 +116,20 @@ GetDebugMessengerCreateInfo()
     return createInfo;
 }
 
-void SetupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT * pdebugMessenger) {
-
+void SetupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT * pdebugMessenger)
+{
+    SM_TRACE("[DEBUG_MSGER] Seting up Debug Messenger");
+    
     if (!enableValidationLayers) return;
 
     auto createInfo = GetDebugMessengerCreateInfo();
 
     if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, pdebugMessenger) != VK_SUCCESS)
     {
-        SM_ASSERT(false, "failed to set up debug messenger!");
+        SM_ASSERT(false, "[DEBUG_MSGER] failed to set up debug messenger!");
     }
     
+    SM_TRACE("[DEBUG_MSGER] Debug Messenger setup Successfully");
 }
 
 bool CheckValidationLayerSupport()
@@ -173,7 +183,7 @@ std::vector<const char *> GetRequiredExtensions()
 
 VkInstance CreateVkInstance()
 {
-    SM_TRACE("Creating Vulkan Instance");
+    SM_TRACE("[INSTANCE] Creating Vulkan Instance");
 
     if (enableValidationLayers && !CheckValidationLayerSupport())
     {
@@ -224,15 +234,15 @@ VkInstance CreateVkInstance()
 
     if (result != VK_SUCCESS)
     {
-        SM_ASSERT(false, "failed to create instance!");
+        SM_ASSERT(false, "[INSTANCE] failed to create instance!");
     }
     
-    SM_TRACE("Vulkan Instance Create Successfully!");
+    SM_TRACE("[INSTANCE] Vulkan Instance Create Successfully!");
 
     return instance;
 }
 
-bool IsDeviceSuitable(VkPhysicalDevice device)
+bool IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceKHR & surface)
 {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -240,7 +250,7 @@ bool IsDeviceSuitable(VkPhysicalDevice device)
     VkPhysicalDeviceFeatures deviceFeatures;
     vkGetPhysicalDeviceFeatures(device, &deviceFeatures);
 
-    QueueFamilyIndices indices = FindQueueFamilies(device);
+    QueueFamilyIndices indices = FindQueueFamilies(device, surface);
     
     bool result = indices.IsComplete();
     
@@ -259,14 +269,16 @@ bool IsDeviceSuitable(VkPhysicalDevice device)
 
     if (result)
     {
-        SM_TRACE("[SELETED_DEVICE] %s", deviceProperties.deviceName); 
+        SM_TRACE("[PHYSICAL_DEVICE] [SELETED_DEVICE] %s", deviceProperties.deviceName); 
     }
 
     return result;
 }
 
-VkPhysicalDevice PickPhysicalDevice(VkInstance instance)
+VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR & surface)
 {
+    SM_TRACE("[PHYSICAL_DEVICE] Creating Physical Device");
+
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
     uint32 deviceCount = 0;
@@ -274,7 +286,7 @@ VkPhysicalDevice PickPhysicalDevice(VkInstance instance)
 
     if (!deviceCount)
     {
-        SM_ASSERT(false, "failed to find GPUs with Vulkan support!");        
+        SM_ASSERT(false, "[PHYSICAL_DEVICE] failed to find GPUs with Vulkan support!");        
     }
 
     std::vector<VkPhysicalDevice> devices(deviceCount);
@@ -282,7 +294,7 @@ VkPhysicalDevice PickPhysicalDevice(VkInstance instance)
 
     for (const auto & device : devices)
     {
-        if (IsDeviceSuitable(device))
+        if (IsDeviceSuitable(device, surface))
         {
             physicalDevice = device;
             break;
@@ -291,31 +303,48 @@ VkPhysicalDevice PickPhysicalDevice(VkInstance instance)
 
     if (physicalDevice == VK_NULL_HANDLE)
     {
-        SM_ASSERT(false, "failed to find a suitable GPU!");        
+        SM_ASSERT(false, "[PHYSICAL_DEVICE] failed to find a suitable GPU!");        
     }
 
+    SM_TRACE("[PHYSICAL_DEVICE] Physical Device Create Successfully!");
     return physicalDevice;
 }
 
 
-VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice)
+VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
-    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+    SM_TRACE("[DEVICE] Creating Logical Device");
 
-    VkDeviceQueueCreateInfo queueCreateInfo{};
-    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queueCreateInfo.queueFamilyIndex = indices.m_graphicsFamily.value();
-    queueCreateInfo.queueCount = 1;
+    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
+
+    Array<VkDeviceQueueCreateInfo, 2> queueCreateInfos;
+    Array<uint32, 2> uniqueQueueFamilies;
+
+    uniqueQueueFamilies.Add(indices.m_graphicsFamily.value());
+    if (indices.m_presentFamily.value() != indices.m_graphicsFamily.value())
+    {
+        uniqueQueueFamilies.Add(indices.m_presentFamily.value());
+    }
 
     float queuePriority = 1.0f;
-    queueCreateInfo.pQueuePriorities = &queuePriority;
+    for (int32 i = 0; i < uniqueQueueFamilies.count; i++)
+    {
+        VkDeviceQueueCreateInfo queueCreateInfo = {};
+    
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = uniqueQueueFamilies[i];
+        queueCreateInfo.queueCount = 1;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+
+        queueCreateInfos.Add(queueCreateInfo);
+    }
 
     VkPhysicalDeviceFeatures deviceFeatures{};
 
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    createInfo.pQueueCreateInfos = &queueCreateInfo;
-    createInfo.queueCreateInfoCount = 1;
+    createInfo.pQueueCreateInfos = queueCreateInfos.elements;
+    createInfo.queueCreateInfoCount = (uint32)queueCreateInfos.count;
     createInfo.pEnabledFeatures = &deviceFeatures;
     createInfo.enabledExtensionCount = 0;
 
@@ -330,28 +359,64 @@ VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice)
     VkDevice device;
     if (vkCreateDevice(physicalDevice, &createInfo, nullptr, &device) != VK_SUCCESS)
     {
-        SM_ASSERT(false, "failed to create logical device");
+        SM_ASSERT(false, "[DEVICE] failed to create logical device");
     }
+
+    SM_TRACE("[DEVICE] Logical Device Create Successfully!");
+
     return device;    
 }
 
-VkQueue CreateGraphicsQueue(VkDevice & device, VkPhysicalDevice & physicalDevice)
+VkQueue CreateGraphicsQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
-    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice);
+    SM_TRACE("[GRAPHICS_QUEUE] Creating Graphics Queue");
+    
+    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 
     VkQueue graphicsQueue;
     vkGetDeviceQueue(device, indices.m_graphicsFamily.value(), 0, &graphicsQueue);
 
+    SM_TRACE("[GRAPHICS_QUEUE] Graphics Queue Create Successfully!");
     return graphicsQueue;
+}
+
+VkQueue CreatePresentQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
+{
+    SM_TRACE("[PRESENT_QUEUE] Creating Present Queue");
+    
+    QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
+
+    VkQueue presentQueue;
+    vkGetDeviceQueue(device, indices.m_presentFamily.value(), 0, &presentQueue);
+
+    SM_TRACE("[PRESENT_QUEUE] Present Queue Create Successfully!");
+    return presentQueue;
+    
+}
+
+VkSurfaceKHR CreateSurface(GLFWwindow * window, VkInstance & instance)
+{
+    SM_TRACE("[SURFACE] Creating Window Surface");
+    
+    VkSurfaceKHR surface;
+    if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "[SURFACE] Failed to create window surface");
+    }
+
+    SM_TRACE("[SURFACE] Window Surface Create Successfully!");
+    return surface;
 }
 
 void InitVulkan(Application & app)
 {
     app.m_instance = CreateVkInstance();
     SetupDebugMessenger(app.m_instance, &app.m_debugMessenger);
-    app.m_physicalDevice = PickPhysicalDevice(app.m_instance);
-    app.m_device = CreateLogicalDevice(app.m_physicalDevice);
-    app.m_graphicsQueue = CreateGraphicsQueue(app.m_device, app.m_physicalDevice);    
+    app.m_surface = CreateSurface(app.m_window, app.m_instance);
+    app.m_physicalDevice = PickPhysicalDevice(app.m_instance, app.m_surface);
+    app.m_device = CreateLogicalDevice(app.m_physicalDevice, app.m_surface);
+    app.m_graphicsQueue = CreateGraphicsQueue(app.m_device, app.m_physicalDevice, app.m_surface);
+    app.m_presentQueue = CreatePresentQueue(app.m_device, app.m_physicalDevice, app.m_surface);
 }
 
 
@@ -372,6 +437,7 @@ void CleanUp(Application & app)
     {
         DestroyDebugUtilsMessengerEXT(app.m_instance, app.m_debugMessenger, nullptr);
     }
+    vkDestroySurfaceKHR(app.m_instance, app.m_surface, nullptr);
     vkDestroyInstance(app.m_instance, nullptr);
     glfwDestroyWindow(app.m_window);
     glfwTerminate();

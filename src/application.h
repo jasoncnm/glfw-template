@@ -22,6 +22,8 @@ struct Application
     VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
     VkDevice m_device;
     VkQueue m_graphicsQueue;
+    VkQueue m_presentQueue;
+    VkSurfaceKHR m_surface;
     
     VkDebugUtilsMessengerEXT m_debugMessenger;
 };
@@ -29,10 +31,11 @@ struct Application
 struct QueueFamilyIndices
 {
     std::optional<uint32> m_graphicsFamily;
+    std::optional<uint32> m_presentFamily;
 
     bool IsComplete()
     {
-        return m_graphicsFamily.has_value();
+        return m_graphicsFamily.has_value() && m_presentFamily.has_value();
     }
 };
 
