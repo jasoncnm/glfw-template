@@ -605,6 +605,36 @@ CreateSwapChainResult CreateSwapChain(GLFWwindow * window, VkDevice & device, Vk
     return result;
 }
 
+std::vector<VkImageView> CreateImageViews(std::vector<VkImage> & swapChainImages, VkDevice & device, VkFormat & swapChainImageFormat)
+{
+    std::vector<VkImageView> result(swapChainImages.size());
+
+    for (uint32 i = 0; i < swapChainImages.size(); i++)
+    {
+        VkImageViewCreateInfo createInfo = {};
+        createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+        createInfo.image = swapChainImages[i];
+        createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+        createInfo.format = swapChainImageFormat;
+        createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+        createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        createInfo.subresourceRange.baseMipLevel = 0;
+        createInfo.subresourceRange.levelCount = 1;
+        createInfo.subresourceRange.baseArrayLayer = 0;
+        createInfo.subresourceRange.layerCount = 1;
+
+        if (vkCreateImageView(device, &createInfo, nullptr, &result[i]) != VK_SUCCESS)
+        {
+            SM_ASSERT(false, "Failed to create Image view");
+        }
+    }
+
+    return result;
+}
+
 void InitVulkan(Application & app)
 {
     app.m_instance = CreateVkInstance();
@@ -612,7 +642,10 @@ void InitVulkan(Application & app)
     app.m_surface = CreateSurface(app.m_window, app.m_instance);
     app.m_physicalDevice = PickPhysicalDevice(app.m_instance, app.m_surface);
     app.m_device = CreateLogicalDevice(app.m_physicalDevice, app.m_surface);
+    app.m_graphicsQueue = CreateGraphicsQueue(app.m_device, app.m_physicalDevice, app.m_surface);
+    app.m_presentQueue = CreatePresentQueue(app.m_device, app.m_physicalDevice, app.m_surface);
 
+    // NOTE: swapchain, images, format, extent creation
     {
         CreateSwapChainResult createResult = CreateSwapChain(app.m_window, app.m_device, app.m_physicalDevice, app.m_surface);
         app.m_swapChain = createResult.m_swapChain;
@@ -620,9 +653,9 @@ void InitVulkan(Application & app)
         app.m_swapChainImageFormat = createResult.m_swapChainImageFormat;
         app.m_swapChainExtent = createResult.m_swapChainExtent;
     }
+
+    app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
     
-    app.m_graphicsQueue = CreateGraphicsQueue(app.m_device, app.m_physicalDevice, app.m_surface);
-    app.m_presentQueue = CreatePresentQueue(app.m_device, app.m_physicalDevice, app.m_surface);
 }
 
 
@@ -638,12 +671,17 @@ void InitWindow(Application & app)
 
 void CleanUp(Application & app)
 {
+    for (uint32 i = 0; i < app.m_swapChainImageViews.size(); i++)
+    {
+        vkDestroyImageView(app.m_device, app.m_swapChainImageViews[i], nullptr);
+    }
     vkDestroySwapchainKHR(app.m_device, app.m_swapChain, nullptr);
     vkDestroyDevice(app.m_device, nullptr);
     if (enableValidationLayers)
     {
         DestroyDebugUtilsMessengerEXT(app.m_instance, app.m_debugMessenger, nullptr);
     }
+    
     vkDestroySurfaceKHR(app.m_instance, app.m_surface, nullptr);
     vkDestroyInstance(app.m_instance, nullptr);
     glfwDestroyWindow(app.m_window);

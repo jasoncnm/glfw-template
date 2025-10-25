@@ -25,9 +25,10 @@ struct Application
     VkQueue m_presentQueue;
     VkSurfaceKHR m_surface;
     VkSwapchainKHR m_swapChain;
-    std::vector<VkImage> m_swapChainImages;
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;
+    std::vector<VkImage> m_swapChainImages;
+    std::vector<VkImageView> m_swapChainImageViews;    
     
     VkDebugUtilsMessengerEXT m_debugMessenger;
 };
