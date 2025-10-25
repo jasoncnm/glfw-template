@@ -24,6 +24,10 @@ struct Application
     VkQueue m_graphicsQueue;
     VkQueue m_presentQueue;
     VkSurfaceKHR m_surface;
+    VkSwapchainKHR m_swapChain;
+    std::vector<VkImage> m_swapChainImages;
+    VkFormat m_swapChainImageFormat;
+    VkExtent2D m_swapChainExtent;
     
     VkDebugUtilsMessengerEXT m_debugMessenger;
 };
@@ -39,6 +43,22 @@ struct QueueFamilyIndices
     }
 };
 
+struct SwapChainSupportDetails
+{
+    VkSurfaceCapabilitiesKHR m_capabilities;
+    std::vector<VkSurfaceFormatKHR> m_formats;
+    std::vector<VkPresentModeKHR> m_presentMods;
+};
+
+struct CreateSwapChainResult
+{
+    VkSwapchainKHR m_swapChain;
+    std::vector<VkImage> m_swapChainImages;
+    VkFormat m_swapChainImageFormat;
+    VkExtent2D m_swapChainExtent;
+    
+};
+
 //====================================================
 //      NOTE: Application Globals
 //====================================================
@@ -49,6 +69,11 @@ constexpr int32 HEIGHT = 600;
 const char * validationLayers[] =
 {
     "VK_LAYER_KHRONOS_validation"
+};
+
+const char * deviceExtensions[] =
+{
+    VK_KHR_SWAPCHAIN_EXTENSION_NAME    
 };
 
 /*

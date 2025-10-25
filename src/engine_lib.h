@@ -7,13 +7,14 @@
    $Notice: $
    ======================================================================== */
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <cmath>
 #include <sys/stat.h>
 #include <vector>
-
+#include <set>
 
 //  ========================================================================
 // NOTE: Defines
@@ -179,6 +180,19 @@ struct Array
         return result;
     }
 
+    void Copy(T * array, int32 arrayCount)
+    {
+        SM_ASSERT(arrayCount < maxElements, "Array size is to big copy!");
+
+        this->Clear();
+
+        for (int i = 0; i < arrayCount; i++)
+        {
+            this->Add(array[i]);            
+        }
+        
+    }
+    
     void RemoveIdxAndSwap(int idx)
     {
         SM_ASSERT(idx >= 0, "Idx negative!");
@@ -502,6 +516,28 @@ struct IVec2
 float Distance(IVec2 a, IVec2 b)
 {
     return Distance(IVec2ToVec2(a), IVec2ToVec2(b));
+}
+
+int Clamp(uint32 val, uint32 min, uint32 max)
+{
+    SM_ASSERT(min <= max, "min is larget than max");    
+    
+    uint32 result = val;
+    if (result < min) result = min;
+    if (result > max) result = max;
+
+    return result;
+}
+
+int Clamp(int32 val, int32 min, int32 max)
+{
+    SM_ASSERT(min <= max, "min is larget than max");    
+    
+    int32 result = val;
+    if (result < min) result = min;
+    if (result > max) result = max;
+
+    return result;
 }
 
 int Sign(int x)
