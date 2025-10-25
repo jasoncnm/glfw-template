@@ -11,6 +11,8 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/jasoncnm/glfw.git
 )
 FetchContent_MakeAvailable(glfw)
+
+# Download glm
 FetchContent_Declare(
     glm
     GIT_REPOSITORY https://github.com/jasoncnm/glm.git
