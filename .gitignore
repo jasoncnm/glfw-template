@@ -1044,6 +1044,8 @@ dkms.conf
 # Raspberry Pi Pico disassembler file
 *.dis
 
+# Vulkan ByteCode Files
+*.spv
 
 # project specific
 p_glfw

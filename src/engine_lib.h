@@ -352,7 +352,6 @@ char * read_file(char * filePath, int * fileSize, char * buffer)
     fclose(file);
 
     return buffer;
-    
 }
 
 char * read_file(char *filePath, int * fileSize, BumpAllocator * ba)
@@ -367,6 +366,25 @@ char * read_file(char *filePath, int * fileSize, BumpAllocator * ba)
 
     return file;
 
+}
+
+std::vector<char> read_file(char * filePath)
+{
+    std::vector<char> file;
+    
+    long fileSize = GetFileSize(filePath);
+    if (fileSize)
+    {
+        file.resize(fileSize + 1);
+        int _fileSize;
+        read_file(filePath, &_fileSize, file.data());
+
+        SM_TRACE("file name: %s", filePath);
+        SM_TRACE("Read file size: %d", (uint32)fileSize);
+        SM_TRACE("Vector Size: %d", (uint32)file.size());
+    }
+
+    return file;
 }
 
 void write_file(char * filePath, char * buffer, int size)
@@ -786,3 +804,4 @@ float EaseInOutBounce(float x)
 }
 #define ENGINE_LIB_H
 #endif
+

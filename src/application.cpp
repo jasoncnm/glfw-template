@@ -635,6 +635,52 @@ std::vector<VkImageView> CreateImageViews(std::vector<VkImage> & swapChainImages
     return result;
 }
 
+// IMPORTANT: Make sure the byte code is null terminated
+VkShaderModule CreateShaderModule(VkDevice & device, std::vector<char> & code)
+{
+    VkShaderModuleCreateInfo createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.codeSize = code.size() - 1;
+    createInfo.pCode = (uint32_t *)code.data();
+    
+    VkShaderModule result;
+
+    if (vkCreateShaderModule(device, &createInfo, nullptr, &result) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "Failed to create shader module");
+    }
+    
+    return result;
+}
+
+void CreateGraphicsPipline(VkDevice & device)
+{
+    // NOTE: This is null terminated
+    std::vector<char> vertShaderCode = read_file("src/Shaders/bytecode/vert.spv");
+    std::vector<char> fragShaderCode = read_file("src/Shaders/bytecode/frag.spv");
+
+    VkShaderModule vertShaderModule = CreateShaderModule(device, vertShaderCode);
+    VkShaderModule fragShaderModule = CreateShaderModule(device, fragShaderCode);    
+
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
+    vertShaderStageInfo.module = vertShaderModule;
+    vertShaderStageInfo.pName = "main";
+
+
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragShaderStageInfo.module = fragShaderModule;
+    fragShaderStageInfo.pName = "main";
+
+    VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+    vkDestroyShaderModule(device, vertShaderModule, nullptr);
+    vkDestroyShaderModule(device, fragShaderModule, nullptr);
+}
+
 void InitVulkan(Application & app)
 {
     app.m_instance = CreateVkInstance();
@@ -655,6 +701,8 @@ void InitVulkan(Application & app)
     }
 
     app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
+
+    CreateGraphicsPipline(app.m_device);
     
 }
 
