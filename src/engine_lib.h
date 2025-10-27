@@ -38,6 +38,10 @@
 
 #define ArrayCount(arr) (sizeof(arr) / sizeof((arr)[0]))
 
+#define internal static
+#define local_persist static
+#define global_variable static
+
 #ifndef PI
 #define PI 3.14159265358979323846f
 #endif
@@ -57,7 +61,6 @@ using memory_index = size_t;
 
 using real32 = float;
 using real64 = double;
-
 
 //  ========================================================================
 // NOTE: Logging

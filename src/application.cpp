@@ -10,7 +10,7 @@
 //====================================================
 //      NOTE: Application Functions
 //====================================================
-QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice & device, const VkSurfaceKHR  & surface)
+internal QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice & device, const VkSurfaceKHR  & surface)
 {
     QueueFamilyIndices indices;
 
@@ -41,7 +41,7 @@ QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice & device, const VkSu
     return indices;
 }
 
-SwapChainSupportDetails QuerySwapChainSupport(const VkPhysicalDevice & physicalDevice, const VkSurfaceKHR & surface)
+internal SwapChainSupportDetails QuerySwapChainSupport(const VkPhysicalDevice & physicalDevice, const VkSurfaceKHR & surface)
 {
     SwapChainSupportDetails result;
 
@@ -66,7 +66,7 @@ SwapChainSupportDetails QuerySwapChainSupport(const VkPhysicalDevice & physicalD
     return result;
 }
 
-VkResult CreateDebugUtilsMessengerEXT(
+internal VkResult CreateDebugUtilsMessengerEXT(
     VkInstance instance,
     const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
     const VkAllocationCallbacks* pAllocator,
@@ -84,7 +84,7 @@ VkResult CreateDebugUtilsMessengerEXT(
     }
 }
 
-void DestroyDebugUtilsMessengerEXT(
+internal void DestroyDebugUtilsMessengerEXT(
     VkInstance instance,
     VkDebugUtilsMessengerEXT debugMessenger,
     const VkAllocationCallbacks* pAllocator
@@ -97,7 +97,7 @@ void DestroyDebugUtilsMessengerEXT(
     }
 }
 
-VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback (
+internal VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback (
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
     VkDebugUtilsMessageTypeFlagsEXT messageType,
     const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
@@ -121,7 +121,7 @@ VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback (
     return VK_FALSE;
 }
 
-VkDebugUtilsMessengerCreateInfoEXT
+internal VkDebugUtilsMessengerCreateInfoEXT
 GetDebugMessengerCreateInfo()
 {
     VkDebugUtilsMessengerCreateInfoEXT createInfo{};
@@ -140,7 +140,7 @@ GetDebugMessengerCreateInfo()
     return createInfo;
 }
 
-void SetupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT * pdebugMessenger)
+internal void SetupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT * pdebugMessenger)
 {
     SM_TRACE("[DEBUG_MSGER] Seting up Debug Messenger");
     
@@ -156,7 +156,7 @@ void SetupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT * pdebugM
     SM_TRACE("[DEBUG_MSGER] Debug Messenger setup Successfully");
 }
 
-bool CheckValidationLayerSupport()
+internal bool CheckValidationLayerSupport()
 {
     uint32 layerCount;
     vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
@@ -190,7 +190,7 @@ bool CheckValidationLayerSupport()
     return result;
 }
 
-std::vector<const char *> GetRequiredExtensions()
+internal std::vector<const char *> GetRequiredExtensions()
 {
     uint32 glfwExtensionCount = 0;
     const char ** glfwExtensions;
@@ -205,7 +205,7 @@ std::vector<const char *> GetRequiredExtensions()
     return extensions;
 }
 
-VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> & availableFormats)
+internal VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> & availableFormats)
 {
     VkSurfaceFormatKHR result = availableFormats[0];
     
@@ -221,7 +221,7 @@ VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>
     return result;
 }
 
-VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> & availablePresentModes)
+internal VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> & availablePresentModes)
 {
     VkPresentModeKHR result = VK_PRESENT_MODE_FIFO_KHR;
 
@@ -238,7 +238,7 @@ VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> & ava
     return result;
 }
 
-VkExtent2D ChooseSwapExtent(GLFWwindow * window, const VkSurfaceCapabilitiesKHR & capabilities)
+internal VkExtent2D ChooseSwapExtent(GLFWwindow * window, const VkSurfaceCapabilitiesKHR & capabilities)
 {
     VkExtent2D result;
 
@@ -262,7 +262,7 @@ VkExtent2D ChooseSwapExtent(GLFWwindow * window, const VkSurfaceCapabilitiesKHR 
     return result;
 }
 
-VkInstance CreateVkInstance()
+internal VkInstance CreateVkInstance()
 {
     SM_TRACE("[INSTANCE] Creating Vulkan Instance");
 
@@ -323,7 +323,7 @@ VkInstance CreateVkInstance()
     return instance;
 }
 
-bool CheckDeviceExtensionSupport(const VkPhysicalDevice & physicalDevice)
+internal bool CheckDeviceExtensionSupport(const VkPhysicalDevice & physicalDevice)
 {
 
     uint32 extensionCount;
@@ -357,7 +357,7 @@ bool CheckDeviceExtensionSupport(const VkPhysicalDevice & physicalDevice)
     
 }
 
-bool IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceKHR & surface)
+internal bool IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceKHR & surface)
 {
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
@@ -378,7 +378,7 @@ bool IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceKHR & surf
     bool result = indices.IsComplete() && extensionsSupported && swapChainAdequate;
     
     /*
-      ======================================== IMPORTANT===========================================
+      ========================================IMPORTANT============================================
       Current implementation only support PC with discrete GPU 
       =============================================================================================
       Instead of just checking if a device is suitable or not and going with the first one,
@@ -398,7 +398,7 @@ bool IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceKHR & surf
     return result;
 }
 
-VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR & surface)
+internal VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR & surface)
 {
     SM_TRACE("[PHYSICAL_DEVICE] Creating Physical Device");
 
@@ -434,7 +434,7 @@ VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR & surfac
 }
 
 
-VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
+internal VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
     SM_TRACE("[DEVICE] Creating Logical Device");
 
@@ -492,7 +492,7 @@ VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice, VkSurfaceKHR & s
     return device;    
 }
 
-VkQueue CreateGraphicsQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
+internal VkQueue CreateGraphicsQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
     SM_TRACE("[GRAPHICS_QUEUE] Creating Graphics Queue");
     
@@ -505,7 +505,7 @@ VkQueue CreateGraphicsQueue(VkDevice & device, VkPhysicalDevice & physicalDevice
     return graphicsQueue;
 }
 
-VkQueue CreatePresentQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
+internal VkQueue CreatePresentQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
     SM_TRACE("[PRESENT_QUEUE] Creating Present Queue");
     
@@ -519,7 +519,7 @@ VkQueue CreatePresentQueue(VkDevice & device, VkPhysicalDevice & physicalDevice,
     
 }
 
-VkSurfaceKHR CreateSurface(GLFWwindow * window, VkInstance & instance)
+internal VkSurfaceKHR CreateSurface(GLFWwindow * window, VkInstance & instance)
 {
     SM_TRACE("[SURFACE] Creating Window Surface");
     
@@ -533,7 +533,7 @@ VkSurfaceKHR CreateSurface(GLFWwindow * window, VkInstance & instance)
     return surface;
 }
 
-CreateSwapChainResult CreateSwapChain(GLFWwindow * window, VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
+internal CreateSwapChainResult CreateSwapChain(GLFWwindow * window, VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
     SwapChainSupportDetails swapChainSupport = QuerySwapChainSupport(physicalDevice, surface);
 
@@ -605,7 +605,7 @@ CreateSwapChainResult CreateSwapChain(GLFWwindow * window, VkDevice & device, Vk
     return result;
 }
 
-std::vector<VkImageView> CreateImageViews(std::vector<VkImage> & swapChainImages, VkDevice & device, VkFormat & swapChainImageFormat)
+internal std::vector<VkImageView> CreateImageViews(std::vector<VkImage> & swapChainImages, VkDevice & device, VkFormat & swapChainImageFormat)
 {
     std::vector<VkImageView> result(swapChainImages.size());
 
@@ -636,7 +636,7 @@ std::vector<VkImageView> CreateImageViews(std::vector<VkImage> & swapChainImages
 }
 
 // IMPORTANT: Make sure the byte code is null terminated
-VkShaderModule CreateShaderModule(VkDevice & device, std::vector<char> & code)
+internal VkShaderModule CreateShaderModule(VkDevice & device, std::vector<char> & code)
 {
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
@@ -653,7 +653,19 @@ VkShaderModule CreateShaderModule(VkDevice & device, std::vector<char> & code)
     return result;
 }
 
-void CreateGraphicsPipline(VkDevice & device)
+
+/*
+  ============================IMPORTANT=============================
+                        Graphics Pipline
+  ==================================================================
+  https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Introduction   
+  ==================================================================
+ - Vertex/Index buffer -> Input Assembler  -> Vertex Shader ->
+   Tessellation        -> Geomeetry shader -> Rasterization ->
+   Fragment Shader     -> Color blending   -> Framebuffer
+  ==================================================================
+*/
+internal VkPipelineLayout CreateGraphicsPipline(VkDevice & device, VkExtent2D & swapChainExtent)
 {
     // NOTE: This is null terminated
     std::vector<char> vertShaderCode = read_file("src/Shaders/bytecode/vert.spv");
@@ -662,14 +674,14 @@ void CreateGraphicsPipline(VkDevice & device)
     VkShaderModule vertShaderModule = CreateShaderModule(device, vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(device, fragShaderCode);    
 
-    VkPipelineShaderStageCreateInfo vertShaderStageInfo{};
+    VkPipelineShaderStageCreateInfo vertShaderStageInfo = {};
     vertShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vertShaderStageInfo.stage = VK_SHADER_STAGE_VERTEX_BIT;
     vertShaderStageInfo.module = vertShaderModule;
     vertShaderStageInfo.pName = "main";
 
 
-    VkPipelineShaderStageCreateInfo fragShaderStageInfo{};
+    VkPipelineShaderStageCreateInfo fragShaderStageInfo = {};
     fragShaderStageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     fragShaderStageInfo.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
     fragShaderStageInfo.module = fragShaderModule;
@@ -677,8 +689,115 @@ void CreateGraphicsPipline(VkDevice & device)
 
     VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
+    // NOTE: Vertex Input
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
+    vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertexInputInfo.vertexBindingDescriptionCount = 0;
+    vertexInputInfo.pVertexBindingDescriptions = nullptr;
+    vertexInputInfo.vertexAttributeDescriptionCount = 0;
+    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
+    // NOTE: Input Assembly 
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
+    inputAssembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    inputAssembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    inputAssembly.primitiveRestartEnable = VK_FALSE;
+
+
+    // NOTE: Viewports and scissors
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = (float)swapChainExtent.width;
+    viewport.height = (float)swapChainExtent.height;
+    viewport.minDepth = 0.0f;
+    viewport.maxDepth = 1.0f;
+    
+    VkRect2D scissor{};
+    scissor.offset = { 0, 0 };
+    scissor.extent = swapChainExtent;
+        
+    // NOTE: Specify Viewports and scissors rect as  Dynamic State 
+    VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
+    VkPipelineDynamicStateCreateInfo dynamicState = {};
+    dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamicState.dynamicStateCount = (uint32)ArrayCount(dynamicStates);
+    dynamicState.pDynamicStates = dynamicStates;
+
+    VkPipelineViewportStateCreateInfo viewPortState = {};
+    viewPortState.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewPortState.viewportCount = 1;
+    viewPortState.scissorCount = 1;
+
+    // NOTE: Rasterizer
+    VkPipelineRasterizationStateCreateInfo rasterizer = {};
+    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable = VK_FALSE;
+    rasterizer.rasterizerDiscardEnable = VK_FALSE;
+    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth = 1.0f;
+    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.depthBiasEnable = VK_FALSE;
+    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
+    rasterizer.depthBiasClamp = 0.0f; // Optional
+    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional    
+
+    // NOTE: MultiSampling
+    VkPipelineMultisampleStateCreateInfo multiSampling = {};
+    multiSampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multiSampling.sampleShadingEnable = VK_FALSE;
+    multiSampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multiSampling.minSampleShading = 1.0f; // Optional
+    multiSampling.pSampleMask = nullptr; // Optional
+    multiSampling.alphaToCoverageEnable = VK_FALSE; // Optional
+    multiSampling.alphaToOneEnable = VK_FALSE; // Optional
+
+    // NOTE: Color Blending
+    VkPipelineColorBlendAttachmentState colorBlendAttachment = {};
+    colorBlendAttachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT |
+        VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT |
+        VK_COLOR_COMPONENT_A_BIT;
+
+    // alpha blending    
+    colorBlendAttachment.blendEnable = VK_TRUE;
+    colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
+    colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
+    colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
+    colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
+
+    VkPipelineColorBlendStateCreateInfo colorBlending = {};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.logicOp = VK_LOGIC_OP_COPY;  // Optional
+    colorBlending.attachmentCount = 1;
+    colorBlending.pAttachments = &colorBlendAttachment;
+    colorBlending.blendConstants[0] = 0.0f; // Optional
+    colorBlending.blendConstants[1] = 0.0f; // Optional
+    colorBlending.blendConstants[2] = 0.0f; // Optional
+    colorBlending.blendConstants[3] = 0.0f; // Optional
+
+    VkPipelineLayoutCreateInfo pipelineLayoutInfo = {};
+    pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipelineLayoutInfo.setLayoutCount = 0;            // Optional
+    pipelineLayoutInfo.pSetLayouts = nullptr;         // Optional
+    pipelineLayoutInfo.pushConstantRangeCount = 0;    // Optional
+    pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
+
+    VkPipelineLayout layout;
+    if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create pipeline layout!");
+    }
+    
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
+
+    return layout;
 }
 
 void InitVulkan(Application & app)
@@ -702,7 +821,7 @@ void InitVulkan(Application & app)
 
     app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
 
-    CreateGraphicsPipline(app.m_device);
+    app.m_pipelineLayout = CreateGraphicsPipline(app.m_device, app.m_swapChainExtent);
     
 }
 
@@ -719,6 +838,8 @@ void InitWindow(Application & app)
 
 void CleanUp(Application & app)
 {
+    vkDestroyPipelineLayout(app.m_device, app.m_pipelineLayout, nullptr);
+
     for (uint32 i = 0; i < app.m_swapChainImageViews.size(); i++)
     {
         vkDestroyImageView(app.m_device, app.m_swapChainImageViews[i], nullptr);

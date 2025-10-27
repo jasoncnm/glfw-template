@@ -29,6 +29,7 @@ struct Application
     VkExtent2D m_swapChainExtent;
     std::vector<VkImage> m_swapChainImages;
     std::vector<VkImageView> m_swapChainImageViews;    
+    VkPipelineLayout m_pipelineLayout;
     
     VkDebugUtilsMessengerEXT m_debugMessenger;
 };

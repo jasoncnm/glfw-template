@@ -13,24 +13,18 @@
 #include "engine_lib.h"
 #include "application.cpp"
 
-void Run(Application & app)
+internal void Run(Application & app)
 {
-    
     // NOTE: Run Application
     InitWindow(app);
-    
     InitVulkan(app);
-
     MainLoop(app);
-    
     CleanUp(app);
-    
 }
 
 int main()
 {
     Application app;
-
     Run(app);
 
 }
