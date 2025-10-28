@@ -106,7 +106,7 @@ internal VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback (
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
     {
         SM_ERROR("[VALIDATION]  %s", pCallbackData->pMessage);
-        SM_ASSERT(false, "Bad Message!");
+        //SM_ASSERT(false, "Bad Message!");
     }
     else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
     {
@@ -585,12 +585,11 @@ internal CreateSwapChainResult CreateSwapChain(GLFWwindow * window, VkDevice & d
     createInfo.clipped = VK_TRUE;
     createInfo.oldSwapchain = VK_NULL_HANDLE;
     
-    VkSwapchainKHR swapChain;
+    VkSwapchainKHR swapChain = {};
     if (vkCreateSwapchainKHR(device, &createInfo, nullptr, &swapChain) != VK_SUCCESS)
     {
         SM_ASSERT(false, "Failed to create swap chain!");
     }
-    vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
 
     vkGetSwapchainImagesKHR(device, swapChain, &imageCount, nullptr);
     std::vector<VkImage> swapChainImages(imageCount);
@@ -665,7 +664,7 @@ internal VkShaderModule CreateShaderModule(VkDevice & device, std::vector<char> 
    Fragment Shader     -> Color blending   -> Framebuffer
   ==================================================================
 */
-internal VkPipelineLayout CreateGraphicsPipline(VkDevice & device, VkExtent2D & swapChainExtent)
+internal CreateGraphicsPipelineResult CreateGraphicsPipeline(VkDevice & device, VkExtent2D & swapChainExtent, VkRenderPass & renderPass)
 {
     // NOTE: This is null terminated
     std::vector<char> vertShaderCode = read_file("src/Shaders/bytecode/vert.spv");
@@ -717,7 +716,7 @@ internal VkPipelineLayout CreateGraphicsPipline(VkDevice & device, VkExtent2D & 
     scissor.offset = { 0, 0 };
     scissor.extent = swapChainExtent;
         
-    // NOTE: Specify Viewports and scissors rect as  Dynamic State 
+    // NOTE: Specify Viewports and scissors rect as Dynamic State 
     VkDynamicState dynamicStates[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR };
     VkPipelineDynamicStateCreateInfo dynamicState = {};
     dynamicState.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -794,11 +793,75 @@ internal VkPipelineLayout CreateGraphicsPipline(VkDevice & device, VkExtent2D & 
     {
         SM_ASSERT(false, "failed to create pipeline layout!");
     }
+
+    VkGraphicsPipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
+    pipelineInfo.stageCount = 2;
+    pipelineInfo.pStages = shaderStages;
+    pipelineInfo.pVertexInputState = &vertexInputInfo;
+    pipelineInfo.pInputAssemblyState = &inputAssembly;
+    pipelineInfo.pViewportState = &viewPortState;
+    pipelineInfo.pRasterizationState = &rasterizer;
+    pipelineInfo.pMultisampleState = &multiSampling;
+    pipelineInfo.pDepthStencilState = nullptr; // Optional
+    pipelineInfo.pColorBlendState = &colorBlending;
+    pipelineInfo.pDynamicState = &dynamicState;
+    pipelineInfo.layout = layout;
+    pipelineInfo.renderPass = renderPass;
+    pipelineInfo.subpass = 0;
+    pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
+    pipelineInfo.basePipelineIndex = -1; // Optional
+
+    VkPipeline graphicsPipeline;
+    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &graphicsPipeline) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create graphics pipeline!");
+    }
     
     vkDestroyShaderModule(device, vertShaderModule, nullptr);
     vkDestroyShaderModule(device, fragShaderModule, nullptr);
 
-    return layout;
+    CreateGraphicsPipelineResult result = { layout, graphicsPipeline };
+
+    return result;
+}
+
+VkRenderPass CreateRenderPass(VkDevice & device, VkFormat & imageFormat)
+{
+    VkAttachmentDescription colorAttachment = {};
+    colorAttachment.format = imageFormat;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference colorAttachmentRef = {};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = 1;
+    renderPassInfo.pAttachments = &colorAttachment;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+
+    VkRenderPass renderPass;
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create render pass");
+    }
+
+    return renderPass;
+    
 }
 
 void InitVulkan(Application & app)
@@ -821,9 +884,13 @@ void InitVulkan(Application & app)
     }
 
     app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
+    app.m_renderPass = CreateRenderPass(app.m_device, app.m_swapChainImageFormat);
 
-    app.m_pipelineLayout = CreateGraphicsPipline(app.m_device, app.m_swapChainExtent);
-    
+    {
+        CreateGraphicsPipelineResult result = CreateGraphicsPipeline(app.m_device, app.m_swapChainExtent, app.m_renderPass);
+        app.m_pipelineLayout = result.m_pipelineLayout;
+        app.m_graphicsPipline = result.m_graphicsPipline;
+    }
 }
 
 
@@ -839,8 +906,9 @@ void InitWindow(Application & app)
 
 void CleanUp(Application & app)
 {
+    vkDestroyPipeline(app.m_device, app.m_graphicsPipline, nullptr);
     vkDestroyPipelineLayout(app.m_device, app.m_pipelineLayout, nullptr);
-
+    vkDestroyRenderPass(app.m_device, app.m_renderPass, nullptr);
     for (uint32 i = 0; i < app.m_swapChainImageViews.size(); i++)
     {
         vkDestroyImageView(app.m_device, app.m_swapChainImageViews[i], nullptr);

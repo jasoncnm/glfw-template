@@ -27,10 +27,14 @@ struct Application
     VkSwapchainKHR m_swapChain;
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;
-    std::vector<VkImage> m_swapChainImages;
-    std::vector<VkImageView> m_swapChainImageViews;    
+    VkRenderPass m_renderPass;    
+
     VkPipelineLayout m_pipelineLayout;
+    VkPipeline m_graphicsPipline;
     
+    std::vector<VkImage> m_swapChainImages;
+    std::vector<VkImageView> m_swapChainImageViews;
+
     VkDebugUtilsMessengerEXT m_debugMessenger;
 };
 
@@ -58,7 +62,12 @@ struct CreateSwapChainResult
     std::vector<VkImage> m_swapChainImages;
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;
-    
+};
+
+struct CreateGraphicsPipelineResult
+{
+    VkPipelineLayout m_pipelineLayout;
+    VkPipeline m_graphicsPipline;
 };
 
 //====================================================
