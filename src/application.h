@@ -34,6 +34,7 @@ struct Application
     
     std::vector<VkImage> m_swapChainImages;
     std::vector<VkImageView> m_swapChainImageViews;
+    std::vector<VkFramebuffer> m_swapChainFramebuffers;
 
     VkDebugUtilsMessengerEXT m_debugMessenger;
 };
