@@ -28,9 +28,10 @@ struct Application
     VkFormat m_swapChainImageFormat;
     VkExtent2D m_swapChainExtent;
     VkRenderPass m_renderPass;    
-
     VkPipelineLayout m_pipelineLayout;
     VkPipeline m_graphicsPipline;
+    VkCommandPool m_commandPool;
+    VkCommandBuffer m_commandBuffer;
     
     std::vector<VkImage> m_swapChainImages;
     std::vector<VkImageView> m_swapChainImageViews;

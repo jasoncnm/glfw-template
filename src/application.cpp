@@ -826,7 +826,7 @@ internal CreateGraphicsPipelineResult CreateGraphicsPipeline(VkDevice & device, 
     return result;
 }
 
-VkRenderPass CreateRenderPass(VkDevice & device, VkFormat & imageFormat)
+internal VkRenderPass CreateRenderPass(VkDevice & device, VkFormat & imageFormat)
 {
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = imageFormat;
@@ -864,7 +864,7 @@ VkRenderPass CreateRenderPass(VkDevice & device, VkFormat & imageFormat)
     
 }
 
-std::vector<VkFramebuffer>
+internal std::vector<VkFramebuffer>
 CreateFramebuffers(VkDevice & device, std::vector<VkImageView> & imageViews, VkRenderPass & renderPass, VkExtent2D & extent)
 {
     std::vector<VkFramebuffer> framebuffers(imageViews.size());
@@ -889,6 +889,91 @@ CreateFramebuffers(VkDevice & device, std::vector<VkImageView> & imageViews, VkR
         
     }
     return framebuffers;
+}
+
+internal VkCommandPool CreateCommandPool(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
+{
+    QueueFamilyIndices queueFamilyIndices = FindQueueFamilies(physicalDevice, surface);
+
+    VkCommandPoolCreateInfo poolInfo = {};
+    poolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    poolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    poolInfo.queueFamilyIndex = queueFamilyIndices.m_graphicsFamily.value();
+
+    VkCommandPool pool;
+    if (vkCreateCommandPool(device, &poolInfo, nullptr, &pool) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create command pool");
+    }
+
+    return pool;
+}
+
+internal VkCommandBuffer CreateCommandBuffer(VkDevice & device, VkCommandPool & commandPool)
+{
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.commandPool = commandPool;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer buffer;
+    if (vkAllocateCommandBuffers(device, &allocInfo, &buffer) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to allocate command buffer");
+    }
+
+    return buffer;    
+}
+
+void RecordCommandBuffer(Application & app, uint32 imageIndex)
+{
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0;
+    beginInfo.pInheritanceInfo = nullptr;
+
+    if (vkBeginCommandBuffer(app.m_commandBuffer, &beginInfo) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to begine recording command buffer!");
+    }
+
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    renderPassInfo.renderPass = app.m_renderPass;
+    renderPassInfo.framebuffer = app.m_swapChainFramebuffers[imageIndex];    
+    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.extent = app.m_swapChainExtent;
+
+    VkClearValue clearColor =  {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(app.m_commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(app.m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app.m_graphicsPipline);
+
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = (real32)app.m_swapChainExtent.width;
+    viewport.height = (real32)app.m_swapChainExtent.height;
+    viewport.minDepth = 0;
+    viewport.maxDepth = 1;
+    vkCmdSetViewport(app.m_commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset = { 0, 0 };
+    scissor.extent = app.m_swapChainExtent;
+    vkCmdSetScissor(app.m_commandBuffer, 0, 1, &scissor);
+
+    vkCmdDraw(app.m_commandBuffer, 3, 1, 0, 0);
+
+    vkCmdEndRenderPass(app.m_commandBuffer);
+
+    if (vkEndCommandBuffer(app.m_commandBuffer) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to record command buffer!");
+    }
 }
 
 void InitVulkan(Application & app)
@@ -918,6 +1003,8 @@ void InitVulkan(Application & app)
         app.m_graphicsPipline = result.m_graphicsPipline;
     }
     app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_renderPass, app.m_swapChainExtent);
+    app.m_commandPool = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
+    app.m_commandBuffer = CreateCommandBuffer(app.m_device, app.m_commandPool);
 }
 
 
@@ -933,6 +1020,7 @@ void InitWindow(Application & app)
 
 void CleanUp(Application & app)
 {
+    vkDestroyCommandPool(app.m_device, app.m_commandPool, nullptr);
     for (uint32 i = 0; i < app.m_swapChainFramebuffers.size(); i++)
     {
         vkDestroyFramebuffer(app.m_device, app.m_swapChainFramebuffers[i], nullptr);
