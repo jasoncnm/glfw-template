@@ -21,9 +21,13 @@ FetchContent_MakeAvailable(glm)
 
 find_package (Vulkan REQUIRED)
 
-#Setup Vulkan include and link directory
+# Setup Vulkan include and link directory
 include_directories($ENV{VULKAN_SDK}/Include)
 link_directories($ENV{VULKAN_SDK}/Lib)
+
+# Setup Imgui include directory
+include_directories(third_party/imgui)
+
 
 #include and link  
 add_executable(${PROJECT_NAME} src/main.cpp)
