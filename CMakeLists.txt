@@ -30,6 +30,7 @@ add_executable(${PROJECT_NAME} src/main.cpp)
 target_link_libraries(${PROJECT_NAME} glfw glm)
 target_link_libraries(${PROJECT_NAME} vulkan-1.lib)
 
+
 #Add address sanitizer
 add_compile_options(-fsanitize=address)
 add_link_options(-fsanitize=address)

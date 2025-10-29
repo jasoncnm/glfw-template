@@ -89,8 +89,8 @@ struct SyncObjects
 //      NOTE: Application Globals
 //====================================================
 
-constexpr int32 WIDTH = 800;
-constexpr int32 HEIGHT = 600;
+constexpr int32 WIDTH = 1600;
+constexpr int32 HEIGHT = 1200;
 
 const char * validationLayers[] =
 {
