@@ -283,10 +283,6 @@ internal VkInstance CreateVkInstance()
     createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
     createInfo.pApplicationInfo = &appInfo;
 
-    uint32 glfwExtensionCount = 0;
-    const char ** glfwExtensions;
-    glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
     auto extensions = GetRequiredExtensions();
     createInfo.enabledExtensionCount = (uint32)extensions.size();
     createInfo.ppEnabledExtensionNames = extensions.data();
@@ -1109,7 +1105,6 @@ void InitWindow(Application & app)
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
-
     app.m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
 }
 
