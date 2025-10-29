@@ -16,28 +16,33 @@
 //====================================================
 struct Application
 {
-    GLFWwindow * m_window;
+    GLFWwindow *               m_window;
 
-    VkInstance m_instance;
-    VkPhysicalDevice m_physicalDevice = VK_NULL_HANDLE;
-    VkDevice m_device;
-    VkQueue m_graphicsQueue;
-    VkQueue m_presentQueue;
-    VkSurfaceKHR m_surface;
-    VkSwapchainKHR m_swapChain;
-    VkFormat m_swapChainImageFormat;
-    VkExtent2D m_swapChainExtent;
-    VkRenderPass m_renderPass;    
-    VkPipelineLayout m_pipelineLayout;
-    VkPipeline m_graphicsPipline;
-    VkCommandPool m_commandPool;
-    VkCommandBuffer m_commandBuffer;
+    VkInstance                 m_instance;
+    VkPhysicalDevice           m_physicalDevice = VK_NULL_HANDLE;
+    VkDevice                   m_device;
+    VkQueue                    m_graphicsQueue;
+    VkQueue                    m_presentQueue;
+    VkSurfaceKHR               m_surface;
+    VkSwapchainKHR             m_swapChain;
+    VkFormat                   m_swapChainImageFormat;
+    VkExtent2D                 m_swapChainExtent;
+    VkRenderPass               m_renderPass;    
+    VkPipelineLayout           m_pipelineLayout;
+    VkPipeline                 m_graphicsPipline;
+    VkCommandPool              m_commandPool;
+    VkCommandBuffer            m_commandBuffer;
     
-    std::vector<VkImage> m_swapChainImages;
-    std::vector<VkImageView> m_swapChainImageViews;
+    std::vector<VkImage>       m_swapChainImages;
+    std::vector<VkImageView>   m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;
 
-    VkDebugUtilsMessengerEXT m_debugMessenger;
+    VkDebugUtilsMessengerEXT   m_debugMessenger;
+
+    // NOTE: Synchronization Object
+    VkSemaphore                m_imageAvailableSemaphore;
+    VkSemaphore                m_renderFinishedSemaphore;
+    VkFence                    m_inFlightFence;
 };
 
 struct QueueFamilyIndices
@@ -70,6 +75,14 @@ struct CreateGraphicsPipelineResult
 {
     VkPipelineLayout m_pipelineLayout;
     VkPipeline m_graphicsPipline;
+};
+
+struct SyncObjects
+{
+    VkSemaphore m_imageAvailableSemaphore;
+    VkSemaphore m_renderFinishedSemaphore;
+    VkFence     m_inFlightFence;
+    
 };
 
 //====================================================

@@ -854,6 +854,17 @@ internal VkRenderPass CreateRenderPass(VkDevice & device, VkFormat & imageFormat
     renderPassInfo.subpassCount = 1;
     renderPassInfo.pSubpasses = &subpass;
 
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+
     VkRenderPass renderPass;
     if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
     {
@@ -926,6 +937,7 @@ internal VkCommandBuffer CreateCommandBuffer(VkDevice & device, VkCommandPool & 
     return buffer;    
 }
 
+internal
 void RecordCommandBuffer(Application & app, uint32 imageIndex)
 {
     VkCommandBufferBeginInfo beginInfo = {};
@@ -939,7 +951,7 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     }
 
     VkRenderPassBeginInfo renderPassInfo = {};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
     renderPassInfo.renderPass = app.m_renderPass;
     renderPassInfo.framebuffer = app.m_swapChainFramebuffers[imageIndex];    
     renderPassInfo.renderArea.offset = { 0, 0 };
@@ -976,6 +988,79 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     }
 }
 
+internal SyncObjects
+CreateSyncObjects(VkDevice & device)
+{
+    VkSemaphoreCreateInfo semaphoreInfo = {};
+    semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fenceInfo = {};
+    fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    VkSemaphore imageAvailSem = {};
+    VkSemaphore renderFinishedSem = {};
+    VkFence     inFlightFence = {};
+
+    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailSem) != VK_SUCCESS     ||
+        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSem) != VK_SUCCESS ||
+        vkCreateFence(device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create syncronization objects");
+    }
+
+    SyncObjects result = { imageAvailSem, renderFinishedSem, inFlightFence };
+
+    return result;
+}
+
+internal
+void DrawFrame(Application & app)
+{
+    vkWaitForFences(app.m_device, 1, &app.m_inFlightFence, VK_TRUE, UINT64_MAX);
+    vkResetFences(app.m_device, 1, &app.m_inFlightFence);
+
+    uint32 imageIndex;
+    vkAcquireNextImageKHR(app.m_device, app.m_swapChain, UINT64_MAX, app.m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+
+    vkResetCommandBuffer(app.m_commandBuffer, 0);
+    RecordCommandBuffer(app, imageIndex);
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore waitSemaphores[] = { app.m_imageAvailableSemaphore };
+    VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+    submitInfo.waitSemaphoreCount = ArrayCount(waitSemaphores);
+    submitInfo.pWaitSemaphores = waitSemaphores;
+    submitInfo.pWaitDstStageMask = waitStages;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &app.m_commandBuffer;
+
+    VkSemaphore signalSemaphores[] = { app.m_renderFinishedSemaphore };
+    submitInfo.signalSemaphoreCount = ArrayCount(signalSemaphores);
+    submitInfo.pSignalSemaphores = signalSemaphores;
+
+    if (vkQueueSubmit(app.m_graphicsQueue, 1, &submitInfo, app.m_inFlightFence) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to submit draw command buffer!");
+    }
+
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.waitSemaphoreCount = ArrayCount(signalSemaphores);
+    presentInfo.pWaitSemaphores = signalSemaphores;
+
+    VkSwapchainKHR swapChains[] = { app.m_swapChain };
+    presentInfo.swapchainCount = ArrayCount(swapChains);
+    presentInfo.pSwapchains = swapChains;
+    presentInfo.pImageIndices = &imageIndex;
+    presentInfo.pResults = nullptr; // Optional
+
+    vkQueuePresentKHR(app.m_presentQueue, &presentInfo); 
+    
+}
+
 void InitVulkan(Application & app)
 {
     app.m_instance = CreateVkInstance();
@@ -997,14 +1082,24 @@ void InitVulkan(Application & app)
 
     app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
     app.m_renderPass = CreateRenderPass(app.m_device, app.m_swapChainImageFormat);
+
     {
         CreateGraphicsPipelineResult result = CreateGraphicsPipeline(app.m_device, app.m_swapChainExtent, app.m_renderPass);
         app.m_pipelineLayout = result.m_pipelineLayout;
         app.m_graphicsPipline = result.m_graphicsPipline;
     }
+    
     app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_renderPass, app.m_swapChainExtent);
     app.m_commandPool = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
     app.m_commandBuffer = CreateCommandBuffer(app.m_device, app.m_commandPool);
+
+    {
+        SyncObjects syncObjs = CreateSyncObjects(app.m_device);
+        app.m_imageAvailableSemaphore = syncObjs.m_imageAvailableSemaphore;
+        app.m_renderFinishedSemaphore = syncObjs.m_renderFinishedSemaphore;
+        app.m_inFlightFence =            syncObjs.m_inFlightFence;
+    }
+    
 }
 
 
@@ -1020,6 +1115,10 @@ void InitWindow(Application & app)
 
 void CleanUp(Application & app)
 {
+    vkDestroySemaphore(app.m_device, app.m_imageAvailableSemaphore, nullptr);
+    vkDestroySemaphore(app.m_device, app.m_renderFinishedSemaphore, nullptr);
+    vkDestroyFence(app.m_device, app.m_inFlightFence, nullptr);
+    
     vkDestroyCommandPool(app.m_device, app.m_commandPool, nullptr);
     for (uint32 i = 0; i < app.m_swapChainFramebuffers.size(); i++)
     {
@@ -1052,5 +1151,8 @@ void MainLoop(Application & app)
     for ( ;!glfwWindowShouldClose(app.m_window); )
     {
         glfwPollEvents();
+        DrawFrame(app);
     }
+
+    vkDeviceWaitIdle(app.m_device);
 }
