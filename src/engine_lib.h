@@ -11,10 +11,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <cmath>
 #include <sys/stat.h>
+
+#include <cmath>
 #include <vector>
 #include <set>
+#include <optional>
 
 //  ========================================================================
 // NOTE: Defines
@@ -251,7 +253,8 @@ struct BumpAllocator
 
 };
 
-BumpAllocator MakeBumpAllocator(size_t size)
+
+internal BumpAllocator MakeBumpAllocator(size_t size)
 {
     BumpAllocator ba = {};
     ba.memory = (char *)malloc(size);
@@ -270,7 +273,7 @@ BumpAllocator MakeBumpAllocator(size_t size)
 }
 
 #define BumpAllocArray(ba, count, size) BumpAlloc(ba, (count)*size)
-char * BumpAlloc(BumpAllocator * ba, size_t size)
+internal char * BumpAlloc(BumpAllocator * ba, size_t size)
 {
     char * result = nullptr;
 
@@ -292,14 +295,14 @@ char * BumpAlloc(BumpAllocator * ba, size_t size)
 //  ========================================================================
 // NOTE: File I/O
 //  ========================================================================
-long long GetTimestamp(char * file)
+internal long long GetTimestamp(char * file)
 {
     struct stat fileStat = {};
     stat(file, &fileStat);
     return fileStat.st_mtime;
 }
 
-bool FileExists(char * filePath)
+internal bool FileExists(char * filePath)
 {
     SM_ASSERT(filePath, "No file path provided!");
 
@@ -313,7 +316,7 @@ bool FileExists(char * filePath)
     return true;    
 }
 
-long GetFileSize(char * filePath)
+internal long GetFileSize(char * filePath)
 {
     SM_ASSERT(filePath, "No file path provided!");
 
@@ -336,7 +339,7 @@ long GetFileSize(char * filePath)
 }
 
 // NOTE: Reads a file into a supplied buffer. We manage our own memory and therefore want more contorl over where it is allocated
-char * read_file(char * filePath, int * fileSize, char * buffer)
+internal char * read_file(char * filePath, int * fileSize, char * buffer)
 {
     SM_ASSERT(filePath, "No file pth provided!");
     SM_ASSERT(fileSize, "No file size provided!");
@@ -363,7 +366,7 @@ char * read_file(char * filePath, int * fileSize, char * buffer)
     return buffer;
 }
 
-char * read_file(char *filePath, int * fileSize, BumpAllocator * ba)
+internal char * read_file(char *filePath, int * fileSize, BumpAllocator * ba)
 {
     char * file = nullptr;
     long fileSize2 = GetFileSize(filePath);
@@ -377,7 +380,7 @@ char * read_file(char *filePath, int * fileSize, BumpAllocator * ba)
 
 }
 
-std::vector<char> read_file(char * filePath)
+internal std::vector<char> read_file(char * filePath)
 {
     std::vector<char> file;
     
@@ -392,7 +395,7 @@ std::vector<char> read_file(char * filePath)
     return file;
 }
 
-void write_file(char * filePath, char * buffer, int size)
+internal void write_file(char * filePath, char * buffer, int size)
 {
     SM_ASSERT(filePath, "No file path provided!");
     SM_ASSERT(buffer,   "No buffer provided!");
@@ -408,7 +411,7 @@ void write_file(char * filePath, char * buffer, int size)
     fclose(file);
 }
 
-bool copy_file(char * fileName, char * outputName, char * buffer)
+internal bool copy_file(char * fileName, char * outputName, char * buffer)
 {
     int fileSize = 0;
     char * data = read_file(fileName, &fileSize, buffer);
@@ -433,7 +436,7 @@ bool copy_file(char * fileName, char * outputName, char * buffer)
 }
 
 
-bool copy_file(char * fileName, char * outputName, BumpAllocator * ba)
+internal bool copy_file(char * fileName, char * outputName, BumpAllocator * ba)
 {
 
     char * file = nullptr;
@@ -467,7 +470,7 @@ struct Vec2
     }
 };
 
-float Distance(Vec2 a, Vec2 b)
+internal float Distance(Vec2 a, Vec2 b)
 {
     Vec2 offset = a - b;
     float result = sqrtf(offset.x * offset.x + offset.y * offset.y);
@@ -475,8 +478,8 @@ float Distance(Vec2 a, Vec2 b)
 }
 
 struct IVec2;
-Vec2 IVec2ToVec2(IVec2 val);
-float Abs(float x)
+internal Vec2 IVec2ToVec2(IVec2 val);
+internal float Abs(float x)
 {
     return x > 0 ? x : -x;
 }
@@ -536,12 +539,12 @@ struct IVec2
     }
 };
 
-float Distance(IVec2 a, IVec2 b)
+internal float Distance(IVec2 a, IVec2 b)
 {
     return Distance(IVec2ToVec2(a), IVec2ToVec2(b));
 }
 
-int Clamp(uint32 val, uint32 min, uint32 max)
+internal int Clamp(uint32 val, uint32 min, uint32 max)
 {
     SM_ASSERT(min <= max, "min is larget than max");    
     
@@ -552,7 +555,7 @@ int Clamp(uint32 val, uint32 min, uint32 max)
     return result;
 }
 
-int Clamp(int32 val, int32 min, int32 max)
+internal int Clamp(int32 val, int32 min, int32 max)
 {
     SM_ASSERT(min <= max, "min is larget than max");    
     
@@ -563,22 +566,22 @@ int Clamp(int32 val, int32 min, int32 max)
     return result;
 }
 
-int Sign(int x)
+internal int Sign(int x)
 {
     return x >= 0 ? 1 : -1;
 }
 
-int Abs(int x)
+internal int Abs(int x)
 {
     return x > 0 ? x : -x;
 }
 
-IVec2 Abs(IVec2 val)
+internal IVec2 Abs(IVec2 val)
 {
     return { Abs(val.x), Abs(val.y) };
 }
 
-Vec2 IVec2ToVec2(IVec2 val)
+internal Vec2 IVec2ToVec2(IVec2 val)
 {
     return Vec2 { (float)val.x, (float)val.y };
 }
@@ -647,7 +650,7 @@ struct Mat4
     }
 };
 
-Mat4 OrthographicProjection(float left, float right, float top, float bottom)
+internal Mat4 OrthographicProjection(float left, float right, float top, float bottom)
 {
     Mat4 result = {};
 
@@ -663,7 +666,7 @@ Mat4 OrthographicProjection(float left, float right, float top, float bottom)
     return result;
 }
 
-int FloatEquals(float x, float y)
+internal int FloatEquals(float x, float y)
 {
     
 #if !defined(EPSILON)
@@ -677,42 +680,42 @@ int FloatEquals(float x, float y)
 
 
 // NOTE Easing functions
-float Linear(float x)
+internal float Linear(float x)
 {
     return x;
 }
 
-float EaseInSine(float x)
+internal float EaseInSine(float x)
 {
     return 1 - cosf((x * PI) / 2);
 }
 
-float EaseOutSine(float x)
+internal float EaseOutSine(float x)
 {
     return sinf((x * PI) / 2);
 }
 
-float EaseInOutSine(float x)
+internal float EaseInOutSine(float x)
 {    
     return -(cosf(PI * x) - 1) / 2;
 }
 
-float EaseOutCubic(float x)
+internal float EaseOutCubic(float x)
 {
     return 1 - powf(1 - x, 3);
 }
 
-float EaseInOutCubic(float x)
+internal float EaseInOutCubic(float x)
 {
     return x < 0.5 ? 4 * x * x * x : 1 - powf(-2 * x + 2, 3) / 2;
 }
 
-float EaseInQuint(float x)
+internal float EaseInQuint(float x)
 {
     return x * x * x * x * x;
 }
 
-bool SameSign(int x, int y)
+internal bool SameSign(int x, int y)
 {
     if (x == 0 || y == 0) return x == y;
 
@@ -722,7 +725,7 @@ bool SameSign(int x, int y)
     return a == b;
 }
 
-float EaseInOutBack(float x)
+internal float EaseInOutBack(float x)
 {
     float c1 = 1.70158f;
     float c2 = c1 * 1.525f;
@@ -732,7 +735,7 @@ float EaseInOutBack(float x)
         : (powf(2 * x - 2, 2) * ((c2 + 1) * (x * 2 - 2) + c2) + 2) / 2;
 }
 
-float EaseOutElastic(float x)
+internal float EaseOutElastic(float x)
 {
     float c4 = (2.0f * PI) / 3.0f;
 
@@ -754,7 +757,7 @@ float EaseOutElastic(float x)
     return result;
 }
 
-float EaseInOutElastic(float x)
+internal float EaseInOutElastic(float x)
 {
     float c5 = (2 * PI) / 4.5f;
 
@@ -780,7 +783,7 @@ float EaseInOutElastic(float x)
     return result;
 }
 
-float EaseOutBounce(float x)
+internal float EaseOutBounce(float x)
 {
     float n1 = 7.5625f;
     float d1 = 2.75f;
@@ -796,12 +799,12 @@ float EaseOutBounce(float x)
     }
 }
 
-float EaseInBounce(float x)
+internal float EaseInBounce(float x)
 {
     return 1 - EaseOutBounce(1 - x);
 }
 
-float EaseInOutBounce(float x)
+internal float EaseInOutBounce(float x)
 {
     return x < 0.5f
         ? (1 - EaseOutBounce(1 - 2 * x)) / 2

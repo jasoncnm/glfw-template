@@ -1196,51 +1196,121 @@ internal uint32 FindMemoryType(VkPhysicalDevice & physicalDevice, uint32 typeFil
     return 0;
 }
 
-internal VertexBufferResult
-CreateAndBindVertexBuffer(VkDevice & device, VkPhysicalDevice & physicalDevice)
+internal BufferCreateResult
+CreateBuffer(VkDevice & device,
+             VkPhysicalDevice & physicalDevice,
+             VkDeviceSize size,
+             VkBufferUsageFlags usage,
+             VkMemoryPropertyFlags properties)
 {
     VkBufferCreateInfo bufferInfo = {};
     bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = ArrayCount(vertices) * sizeof(Vertex);
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.size = size;
+    bufferInfo.usage = usage;
     bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
-    VkBuffer vertexBuffer = {};
-    if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
+    VkBuffer buffer = {};
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &buffer) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to create vertex buffer");
     }
 
     VkMemoryRequirements memRequirements;
-    vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+    vkGetBufferMemoryRequirements(device, buffer, &memRequirements);
 
     VkMemoryAllocateInfo allocateInfo = {};
     allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     allocateInfo.allocationSize = memRequirements.size;
     allocateInfo.memoryTypeIndex = FindMemoryType(physicalDevice,
-                                                  memRequirements.memoryTypeBits,
-                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
-                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                                  memRequirements.memoryTypeBits, properties);
 
-    VkDeviceMemory vertexBufferMemory;
-    if (vkAllocateMemory(device, &allocateInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
+    VkDeviceMemory bufferMemory;
+    if (vkAllocateMemory(device, &allocateInfo, nullptr, &bufferMemory) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to allocate vertex buffer memory!");
     }
 
-    vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+    vkBindBufferMemory(device, buffer, bufferMemory, 0);
 
-    void * data;
-    vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-    memcpy(data, vertices, (uint32)bufferInfo.size);
-    vkUnmapMemory(device, vertexBufferMemory);
-
-    VertexBufferResult result = { vertexBuffer, vertexBufferMemory };
+    BufferCreateResult result = { buffer, bufferMemory };
 
     return result;
 }
 
-void InitVulkan(Application & app)
+internal void CopyBuffer(VkDevice & device,
+                         VkCommandPool & commandPool,
+                         VkQueue & graphicsQueue,
+                         VkBuffer srcBuffer,
+                         VkBuffer dstBuffer,
+                         VkDeviceSize size)
+{
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
+
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+
+    VkBufferCopy copyRegion = {};
+    copyRegion.srcOffset = 0; // Optional
+    copyRegion.dstOffset = 0; // Optional
+    copyRegion.size = size;
+    vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
+
+    vkEndCommandBuffer(commandBuffer);
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+
+    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
+    vkQueueWaitIdle(graphicsQueue);
+
+    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
+internal BufferCreateResult
+CreateAndBindVertexBuffer(VkDevice & device,
+                          VkCommandPool & commandPool,
+                          VkQueue & graphicsQueue,
+                          VkPhysicalDevice & physicalDevice)
+{
+    VkDeviceSize bufferSize = sizeof(Vertex) * ArrayCount(vertices);
+    BufferCreateResult staginBufferResult = CreateBuffer(device,
+                                                          physicalDevice,
+                                                          bufferSize,
+                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    
+    void * data;
+    vkMapMemory(device, staginBufferResult.m_bufferMemory, 0, bufferSize, 0, &data);
+    memcpy(data, vertices, (uint32)bufferSize);
+    vkUnmapMemory(device, staginBufferResult.m_bufferMemory);
+
+    BufferCreateResult vertexBufferResult = CreateBuffer(device,
+                                                         physicalDevice,
+                                                         bufferSize,
+                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT,
+                                                         VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    CopyBuffer(device, commandPool, graphicsQueue, staginBufferResult.m_buffer, vertexBufferResult.m_buffer, bufferSize);
+
+    vkDestroyBuffer(device, staginBufferResult.m_buffer, nullptr);
+    vkFreeMemory(device, staginBufferResult.m_bufferMemory, nullptr);
+
+    return vertexBufferResult;
+}
+
+internal void InitVulkan(Application & app)
 {
     app.m_instance = CreateVkInstance();
     SetupDebugMessenger(app.m_instance, &app.m_debugMessenger);
@@ -1271,9 +1341,9 @@ void InitVulkan(Application & app)
     app.m_commandPool = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
 
     {
-        VertexBufferResult result = CreateAndBindVertexBuffer(app.m_device, app.m_physicalDevice);
-        app.m_vertexBuffer = result.m_vertexBuffer;
-        app.m_vertexBufferMemory = result.m_vertexBufferMemory;
+        BufferCreateResult result = CreateAndBindVertexBuffer(app.m_device, app.m_commandPool, app.m_graphicsQueue, app.m_physicalDevice);
+        app.m_vertexBuffer = result.m_buffer;
+        app.m_vertexBufferMemory = result.m_bufferMemory;
     }
     
     app.m_commandBuffers = CreateCommandBuffers(app.m_device, app.m_commandPool);
@@ -1288,7 +1358,7 @@ void InitVulkan(Application & app)
 }
 
 
-void InitWindow(Application & app)
+internal void InitWindow(Application & app)
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
@@ -1299,7 +1369,7 @@ void InitWindow(Application & app)
 }
 
 
-void CleanUp(Application & app)
+internal void CleanUp(Application & app)
 {
     CleanupSwapChain(app);
     vkDestroyBuffer(app.m_device, app.m_vertexBuffer, nullptr);
@@ -1329,7 +1399,7 @@ void CleanUp(Application & app)
 
 
 // NOTE: call at each frame
-void MainLoop(Application & app)
+internal void MainLoop(Application & app)
 {
     for ( ;!glfwWindowShouldClose(app.m_window); )
     {
@@ -1338,4 +1408,14 @@ void MainLoop(Application & app)
     }
 
     vkDeviceWaitIdle(app.m_device);
+}
+
+
+void RunApplication(Application & app)
+{
+    // NOTE: Run Application
+    InitWindow(app);
+    InitVulkan(app);
+    MainLoop(app);
+    CleanUp(app);
 }

@@ -6,19 +6,10 @@
    $Notice: $
    ======================================================================== */
 
-#include "application.cpp"
-
-internal void Run(Application & app)
-{
-    // NOTE: Run Application
-    InitWindow(app);
-    InitVulkan(app);
-    MainLoop(app);
-    CleanUp(app);
-}
+#include "application.h"
 
 int main()
 {
     Application app;
-    Run(app);
+    RunApplication(app);
 }

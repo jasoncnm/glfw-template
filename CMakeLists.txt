@@ -30,7 +30,7 @@ include_directories(third_party/imgui)
 
 
 #include and link  
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp src/application.cpp)
 target_link_libraries(${PROJECT_NAME} glfw glm)
 target_link_libraries(${PROJECT_NAME} vulkan-1.lib)
 
