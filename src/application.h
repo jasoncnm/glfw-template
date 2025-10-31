@@ -6,17 +6,47 @@
    $Creator: Junjie Mao $
    $Notice: $
    ======================================================================== */
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <optional>
+#include <glm/glm.hpp>
 
+#include "engine_lib.h"
+
+//====================================================
+//      NOTE: Application Constexpr
+//====================================================
+
+/*
+
+  NOTE: APP_SLOW
+   1 - No optimization build (DEBUG build)
+   0 - Build with optimization (Release build)
+ */
+
+#if APP_SLOW
+constexpr bool enableValidationLayers = true;
+#else
+constexpr bool enableValidationLayers = false;
+#endif
+
+constexpr int32 WIDTH = 800;
+constexpr int32 HEIGHT = 600;
+constexpr int32 MAX_FRAMES_IN_FLIGHT = 2;
 
 //====================================================
 //      NOTE: Application Structs
 //====================================================
 struct Application
 {
+
+    uint32 m_currentFrame = 0;
+    bool   m_framebufferResized = false;
+    
     GLFWwindow *               m_window;
+
+    VkDebugUtilsMessengerEXT   m_debugMessenger;
 
     VkInstance                 m_instance;
     VkPhysicalDevice           m_physicalDevice = VK_NULL_HANDLE;
@@ -31,18 +61,23 @@ struct Application
     VkPipelineLayout           m_pipelineLayout;
     VkPipeline                 m_graphicsPipline;
     VkCommandPool              m_commandPool;
-    VkCommandBuffer            m_commandBuffer;
-    
+    VkBuffer                   m_vertexBuffer;
+    VkDeviceMemory             m_vertexBufferMemory;
+
     std::vector<VkImage>       m_swapChainImages;
     std::vector<VkImageView>   m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;
-
-    VkDebugUtilsMessengerEXT   m_debugMessenger;
-
+    Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT>  m_commandBuffers;
     // NOTE: Synchronization Object
-    VkSemaphore                m_imageAvailableSemaphore;
-    VkSemaphore                m_renderFinishedSemaphore;
-    VkFence                    m_inFlightFence;
+    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
+    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
+    Array<VkFence, MAX_FRAMES_IN_FLIGHT>     m_inFlightFences;
+};
+
+struct IsDeviceSuitableResult
+{
+    bool m_isSuitable = false;
+    int32 m_score = 0;
 };
 
 struct QueueFamilyIndices
@@ -79,19 +114,26 @@ struct CreateGraphicsPipelineResult
 
 struct SyncObjects
 {
-    VkSemaphore m_imageAvailableSemaphore;
-    VkSemaphore m_renderFinishedSemaphore;
-    VkFence     m_inFlightFence;
-    
+    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
+    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
+    Array<VkFence, MAX_FRAMES_IN_FLIGHT>     m_inFlightFences;
+};
+
+struct VertexBufferResult
+{
+    VkBuffer                   m_vertexBuffer;
+    VkDeviceMemory             m_vertexBufferMemory;
+};
+
+struct Vertex
+{
+    glm::vec2 m_pos;
+    glm::vec3 m_color;
 };
 
 //====================================================
 //      NOTE: Application Globals
 //====================================================
-
-constexpr int32 WIDTH = 1600;
-constexpr int32 HEIGHT = 1200;
-
 const char * validationLayers[] =
 {
     "VK_LAYER_KHRONOS_validation"
@@ -102,18 +144,13 @@ const char * deviceExtensions[] =
     VK_KHR_SWAPCHAIN_EXTENSION_NAME    
 };
 
-/*
+const Vertex vertices[] =
+{
+    { { 0.0f, -0.5f }, { 1.0f, 1.0f, 1.0f } },
+    { { 0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f } },
+    { {-0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f } }
+};
 
-  NOTE: APP_SLOW
-   1 - No optimization build (DEBUG build)
-   0 - Build with optimization (Release build)
- */
-
-#if APP_SLOW
-constexpr bool enableValidationLayers = true;
-#else
-constexpr bool enableValidationLayers = false;
-#endif
 
 //====================================================
 //      NOTE: Application Functions

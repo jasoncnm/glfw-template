@@ -6,10 +6,6 @@
    $Notice: $
    ======================================================================== */
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-#include "engine_lib.h"
 #include "application.cpp"
 
 internal void Run(Application & app)
@@ -25,5 +21,4 @@ int main()
 {
     Application app;
     Run(app);
-
 }

@@ -10,6 +10,45 @@
 //====================================================
 //      NOTE: Application Functions
 //====================================================
+
+internal void FramebufferResizeCallback(GLFWwindow  * window, int32 width, int32 height)
+{
+    Application * app = (Application *)glfwGetWindowUserPointer(window);
+    app->m_framebufferResized = true;
+}
+
+internal VkVertexInputBindingDescription GetVertexBindingDescription()
+{
+    VkVertexInputBindingDescription bindingDescription = {};
+
+    bindingDescription.binding = 0;
+    bindingDescription.stride = sizeof(Vertex);
+    bindingDescription.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    
+    return bindingDescription;
+}
+
+internal Array<VkVertexInputAttributeDescription, 2> GetVertexAttributeDescriptions()
+{
+    Array<VkVertexInputAttributeDescription, 2> attributeDescriptions;
+
+    VkVertexInputAttributeDescription att1 = {};
+    att1.binding = 0;
+    att1.location = 0;
+    att1.format = VK_FORMAT_R32G32_SFLOAT;
+    att1.offset = offsetof(Vertex, m_pos);
+    attributeDescriptions.Add(att1);
+
+    VkVertexInputAttributeDescription att2 = {};
+    att2.binding = 0;
+    att2.location = 1;
+    att2.format = VK_FORMAT_R32G32B32_SFLOAT;
+    att2.offset = offsetof(Vertex, m_color);
+    attributeDescriptions.Add(att2);
+
+    return attributeDescriptions;
+}
+
 internal QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice & device, const VkSurfaceKHR  & surface)
 {
     QueueFamilyIndices indices;
@@ -142,7 +181,6 @@ GetDebugMessengerCreateInfo()
 
 internal void SetupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT * pdebugMessenger)
 {
-    SM_TRACE("[DEBUG_MSGER] Seting up Debug Messenger");
     
     if (!enableValidationLayers) return;
 
@@ -153,7 +191,6 @@ internal void SetupDebugMessenger(VkInstance instance, VkDebugUtilsMessengerEXT 
         SM_ASSERT(false, "[DEBUG_MSGER] failed to set up debug messenger!");
     }
     
-    SM_TRACE("[DEBUG_MSGER] Debug Messenger setup Successfully");
 }
 
 internal bool CheckValidationLayerSupport()
@@ -209,7 +246,7 @@ internal VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceF
 {
     VkSurfaceFormatKHR result = availableFormats[0];
     
-    for (const auto & format : availableFormats)
+    for (const auto & format : availableFormats)    
     {
         if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
@@ -264,7 +301,6 @@ internal VkExtent2D ChooseSwapExtent(GLFWwindow * window, const VkSurfaceCapabil
 
 internal VkInstance CreateVkInstance()
 {
-    SM_TRACE("[INSTANCE] Creating Vulkan Instance");
 
     if (enableValidationLayers && !CheckValidationLayerSupport())
     {
@@ -313,8 +349,6 @@ internal VkInstance CreateVkInstance()
     {
         SM_ASSERT(false, "[INSTANCE] failed to create instance!");
     }
-    
-    SM_TRACE("[INSTANCE] Vulkan Instance Create Successfully!");
 
     return instance;
 }
@@ -353,8 +387,11 @@ internal bool CheckDeviceExtensionSupport(const VkPhysicalDevice & physicalDevic
     
 }
 
-internal bool IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceKHR & surface)
+internal IsDeviceSuitableResult IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceKHR & surface)
 {
+
+    IsDeviceSuitableResult result = {};
+    
     VkPhysicalDeviceProperties deviceProperties;
     vkGetPhysicalDeviceProperties(device, &deviceProperties);
 
@@ -371,32 +408,26 @@ internal bool IsDeviceSuitable(const VkPhysicalDevice & device, const VkSurfaceK
         swapChainAdequate = !swapChainSupport.m_presentMods.empty() && !swapChainSupport.m_formats.empty();
     }
     
-    bool result = indices.IsComplete() && extensionsSupported && swapChainAdequate;
+    result.m_isSuitable = indices.IsComplete() && extensionsSupported && swapChainAdequate;
     
     /*
       ========================================IMPORTANT============================================
-      Current implementation only support PC with discrete GPU 
+      Current implementation prefer picking discrete GPU 
       =============================================================================================
-      Instead of just checking if a device is suitable or not and going with the first one,
-      you could also give each device a score and pick the highest one.
-      That way you could favor a dedicated graphics card by giving it a higher score,
+      Give each device a score and pick the highest one.
+      Favor a dedicated graphics card by giving it a higher score,
       but fall back to an integrated GPU if that's the only available one. 
       =============================================================================================
     */
-    
-    result = result && deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU && deviceFeatures.geometryShader;
 
-    if (result)
-    {
-        SM_TRACE("[PHYSICAL_DEVICE] [SELETED_DEVICE] %s", deviceProperties.deviceName); 
-    }
+    if (deviceProperties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) result.m_score++;
+    if (deviceFeatures.geometryShader) result.m_score++;
 
     return result;
 }
 
 internal VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR & surface)
 {
-    SM_TRACE("[PHYSICAL_DEVICE] Creating Physical Device");
 
     VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
@@ -411,12 +442,14 @@ internal VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR
     std::vector<VkPhysicalDevice> devices(deviceCount);
     vkEnumeratePhysicalDevices(instance, &deviceCount, devices.data());
 
+    int32 maxScore = -1;
     for (const auto & device : devices)
     {
-        if (IsDeviceSuitable(device, surface))
+        IsDeviceSuitableResult result = IsDeviceSuitable(device, surface);
+        if (result.m_isSuitable && result.m_score > maxScore)
         {
             physicalDevice = device;
-            break;
+            maxScore = result.m_score;
         }
     }
 
@@ -425,14 +458,18 @@ internal VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR
         SM_ASSERT(false, "[PHYSICAL_DEVICE] failed to find a suitable GPU!");        
     }
 
-    SM_TRACE("[PHYSICAL_DEVICE] Physical Device Create Successfully!");
+    {
+        VkPhysicalDeviceProperties deviceProperties;
+        vkGetPhysicalDeviceProperties(physicalDevice, &deviceProperties);
+        SM_TRACE("[PHYSICAL_DEVICE] [SELETED_DEVICE] %s", deviceProperties.deviceName); 
+    }
+    
     return physicalDevice;
 }
 
 
 internal VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
-    SM_TRACE("[DEVICE] Creating Logical Device");
 
     QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 
@@ -483,41 +520,34 @@ internal VkDevice CreateLogicalDevice(VkPhysicalDevice & physicalDevice, VkSurfa
         SM_ASSERT(false, "[DEVICE] failed to create logical device");
     }
 
-    SM_TRACE("[DEVICE] Logical Device Create Successfully!");
-
     return device;    
 }
 
 internal VkQueue CreateGraphicsQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
-    SM_TRACE("[GRAPHICS_QUEUE] Creating Graphics Queue");
     
     QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 
     VkQueue graphicsQueue;
     vkGetDeviceQueue(device, indices.m_graphicsFamily.value(), 0, &graphicsQueue);
 
-    SM_TRACE("[GRAPHICS_QUEUE] Graphics Queue Create Successfully!");
     return graphicsQueue;
 }
 
 internal VkQueue CreatePresentQueue(VkDevice & device, VkPhysicalDevice & physicalDevice, VkSurfaceKHR & surface)
 {
-    SM_TRACE("[PRESENT_QUEUE] Creating Present Queue");
     
     QueueFamilyIndices indices = FindQueueFamilies(physicalDevice, surface);
 
     VkQueue presentQueue;
     vkGetDeviceQueue(device, indices.m_presentFamily.value(), 0, &presentQueue);
 
-    SM_TRACE("[PRESENT_QUEUE] Present Queue Create Successfully!");
     return presentQueue;
     
 }
 
 internal VkSurfaceKHR CreateSurface(GLFWwindow * window, VkInstance & instance)
 {
-    SM_TRACE("[SURFACE] Creating Window Surface");
     
     VkSurfaceKHR surface;
     if (glfwCreateWindowSurface(instance, window, nullptr, &surface) != VK_SUCCESS)
@@ -525,7 +555,6 @@ internal VkSurfaceKHR CreateSurface(GLFWwindow * window, VkInstance & instance)
         SM_ASSERT(false, "[SURFACE] Failed to create window surface");
     }
 
-    SM_TRACE("[SURFACE] Window Surface Create Successfully!");
     return surface;
 }
 
@@ -687,10 +716,14 @@ internal CreateGraphicsPipelineResult CreateGraphicsPipeline(VkDevice & device, 
     // NOTE: Vertex Input
     VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
     vertexInputInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertexInputInfo.vertexBindingDescriptionCount = 0;
-    vertexInputInfo.pVertexBindingDescriptions = nullptr;
-    vertexInputInfo.vertexAttributeDescriptionCount = 0;
-    vertexInputInfo.pVertexAttributeDescriptions = nullptr;
+
+    VkVertexInputBindingDescription bindingDescription = GetVertexBindingDescription();
+    Array<VkVertexInputAttributeDescription, 2> attributeDescriptions = GetVertexAttributeDescriptions();
+    
+    vertexInputInfo.vertexBindingDescriptionCount = 1;
+    vertexInputInfo.pVertexBindingDescriptions = &bindingDescription;
+    vertexInputInfo.vertexAttributeDescriptionCount = attributeDescriptions.count;
+    vertexInputInfo.pVertexAttributeDescriptions = attributeDescriptions.elements;
 
     // NOTE: Input Assembly 
     VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
@@ -916,21 +949,24 @@ internal VkCommandPool CreateCommandPool(VkDevice & device, VkPhysicalDevice & p
     return pool;
 }
 
-internal VkCommandBuffer CreateCommandBuffer(VkDevice & device, VkCommandPool & commandPool)
+internal Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT>
+CreateCommandBuffers(VkDevice & device, VkCommandPool & commandPool)
 {
+    Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> commandBuffers;
+    commandBuffers.Resize(MAX_FRAMES_IN_FLIGHT);
+
     VkCommandBufferAllocateInfo allocInfo = {};
     allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     allocInfo.commandPool = commandPool;
     allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer buffer;
-    if (vkAllocateCommandBuffers(device, &allocInfo, &buffer) != VK_SUCCESS)
+    allocInfo.commandBufferCount = commandBuffers.count;
+    
+    if (vkAllocateCommandBuffers(device, &allocInfo, commandBuffers.elements) != VK_SUCCESS)
     {
-        SM_ASSERT(false, "failed to allocate command buffer");
+        SM_ASSERT(false, "failed to allocate command buffers!");
     }
 
-    return buffer;    
+    return commandBuffers;    
 }
 
 internal
@@ -941,7 +977,7 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     beginInfo.flags = 0;
     beginInfo.pInheritanceInfo = nullptr;
 
-    if (vkBeginCommandBuffer(app.m_commandBuffer, &beginInfo) != VK_SUCCESS)
+    if (vkBeginCommandBuffer(app.m_commandBuffers[app.m_currentFrame], &beginInfo) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to begine recording command buffer!");
     }
@@ -957,8 +993,8 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     renderPassInfo.clearValueCount = 1;
     renderPassInfo.pClearValues = &clearColor;
 
-    vkCmdBeginRenderPass(app.m_commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(app.m_commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app.m_graphicsPipline);
+    vkCmdBeginRenderPass(app.m_commandBuffers[app.m_currentFrame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(app.m_commandBuffers[app.m_currentFrame], VK_PIPELINE_BIND_POINT_GRAPHICS, app.m_graphicsPipline);
 
     VkViewport viewport = {};
     viewport.x = 0;
@@ -967,18 +1003,22 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     viewport.height = (real32)app.m_swapChainExtent.height;
     viewport.minDepth = 0;
     viewport.maxDepth = 1;
-    vkCmdSetViewport(app.m_commandBuffer, 0, 1, &viewport);
+    vkCmdSetViewport(app.m_commandBuffers[app.m_currentFrame], 0, 1, &viewport);
 
     VkRect2D scissor = {};
     scissor.offset = { 0, 0 };
     scissor.extent = app.m_swapChainExtent;
-    vkCmdSetScissor(app.m_commandBuffer, 0, 1, &scissor);
+    vkCmdSetScissor(app.m_commandBuffers[app.m_currentFrame], 0, 1, &scissor);
 
-    vkCmdDraw(app.m_commandBuffer, 3, 1, 0, 0);
+    VkBuffer vertexBuffers[] = { app.m_vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(app.m_commandBuffers[app.m_currentFrame], 0, 1, vertexBuffers, offsets);
 
-    vkCmdEndRenderPass(app.m_commandBuffer);
+    vkCmdDraw(app.m_commandBuffers[app.m_currentFrame], (uint32)ArrayCount(vertices), 1, 0, 0);
 
-    if (vkEndCommandBuffer(app.m_commandBuffer) != VK_SUCCESS)
+    vkCmdEndRenderPass(app.m_commandBuffers[app.m_currentFrame]);
+
+    if (vkEndCommandBuffer(app.m_commandBuffers[app.m_currentFrame]) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to record command buffer!");
     }
@@ -987,6 +1027,10 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
 internal SyncObjects
 CreateSyncObjects(VkDevice & device)
 {
+    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> imageAvailableSemaphores;
+    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores;
+    Array<VkFence, MAX_FRAMES_IN_FLIGHT>     inFlightFences;
+
     VkSemaphoreCreateInfo semaphoreInfo = {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -994,50 +1038,115 @@ CreateSyncObjects(VkDevice & device)
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    VkSemaphore imageAvailSem = {};
-    VkSemaphore renderFinishedSem = {};
-    VkFence     inFlightFence = {};
-
-    if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailSem) != VK_SUCCESS     ||
-        vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSem) != VK_SUCCESS ||
-        vkCreateFence(device, &fenceInfo, nullptr, &inFlightFence) != VK_SUCCESS)
+    imageAvailableSemaphores.Resize(MAX_FRAMES_IN_FLIGHT);
+    renderFinishedSemaphores.Resize(MAX_FRAMES_IN_FLIGHT);
+    inFlightFences.Resize(MAX_FRAMES_IN_FLIGHT);
+    
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        SM_ASSERT(false, "failed to create syncronization objects");
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS     ||
+            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
+            vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
+        {
+            SM_ASSERT(false, "failed to create syncronization objects");
+        }
     }
 
-    SyncObjects result = { imageAvailSem, renderFinishedSem, inFlightFence };
+    SyncObjects result =
+        {
+            imageAvailableSemaphores,
+            renderFinishedSemaphores,
+            inFlightFences
+        };
 
     return result;
+}
+
+internal void CleanupSwapChain(Application & app)
+{
+    for (uint32 i = 0; i < app.m_swapChainFramebuffers.size(); i++)
+    {
+        vkDestroyFramebuffer(app.m_device, app.m_swapChainFramebuffers[i], nullptr);
+    }
+
+    for (uint32 i = 0; i < app.m_swapChainImageViews.size(); i++)
+    {
+        vkDestroyImageView(app.m_device, app.m_swapChainImageViews[i], nullptr);
+    }
+
+    vkDestroySwapchainKHR(app.m_device, app.m_swapChain, nullptr);
+    
+}
+
+internal void RecreateSwapChain(Application & app)
+{
+    int32 width = 0, height = 0;
+    glfwGetFramebufferSize(app.m_window, &width, &height);
+    for ( ; width == 0 || height == 0; )
+    {
+        glfwGetFramebufferSize(app.m_window, &width, &height);
+        glfwWaitEvents();
+    }
+    
+    vkDeviceWaitIdle(app.m_device);
+    CleanupSwapChain(app);
+    
+    // NOTE: swapchain, images, format, extent creation
+    {
+        CreateSwapChainResult createResult = CreateSwapChain(app.m_window, app.m_device, app.m_physicalDevice, app.m_surface);
+        app.m_swapChain = createResult.m_swapChain;
+        app.m_swapChainImages = createResult.m_swapChainImages;
+        app.m_swapChainImageFormat = createResult.m_swapChainImageFormat;
+        app.m_swapChainExtent = createResult.m_swapChainExtent;
+    }
+    app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
+    app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_renderPass, app.m_swapChainExtent);
 }
 
 internal
 void DrawFrame(Application & app)
 {
-    vkWaitForFences(app.m_device, 1, &app.m_inFlightFence, VK_TRUE, UINT64_MAX);
-    vkResetFences(app.m_device, 1, &app.m_inFlightFence);
+    vkWaitForFences(app.m_device, 1, &app.m_inFlightFences[app.m_currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32 imageIndex;
-    vkAcquireNextImageKHR(app.m_device, app.m_swapChain, UINT64_MAX, app.m_imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
+    VkResult result = vkAcquireNextImageKHR(app.m_device,
+                                            app.m_swapChain,
+                                            UINT64_MAX,
+                                            app.m_imageAvailableSemaphores[app.m_currentFrame],
+                                            VK_NULL_HANDLE,
+                                            &imageIndex);
 
-    vkResetCommandBuffer(app.m_commandBuffer, 0);
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        RecreateSwapChain(app);
+        return;
+    }
+    else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
+    {
+        SM_ASSERT(false, "failed to acquire swap chain image!");
+    }
+
+    vkResetFences(app.m_device, 1, &app.m_inFlightFences[app.m_currentFrame]);
+    
+    vkResetCommandBuffer(app.m_commandBuffers[app.m_currentFrame], 0);
     RecordCommandBuffer(app, imageIndex);
 
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore waitSemaphores[] = { app.m_imageAvailableSemaphore };
+    VkSemaphore waitSemaphores[] = { app.m_imageAvailableSemaphores[app.m_currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount = ArrayCount(waitSemaphores);
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
     submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &app.m_commandBuffer;
+    submitInfo.pCommandBuffers = &app.m_commandBuffers[app.m_currentFrame];
 
-    VkSemaphore signalSemaphores[] = { app.m_renderFinishedSemaphore };
+    VkSemaphore signalSemaphores[] = { app.m_renderFinishedSemaphores[app.m_currentFrame] };
     submitInfo.signalSemaphoreCount = ArrayCount(signalSemaphores);
     submitInfo.pSignalSemaphores = signalSemaphores;
 
-    if (vkQueueSubmit(app.m_graphicsQueue, 1, &submitInfo, app.m_inFlightFence) != VK_SUCCESS)
+    if (vkQueueSubmit(app.m_graphicsQueue, 1, &submitInfo, app.m_inFlightFences[app.m_currentFrame]) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to submit draw command buffer!");
     }
@@ -1053,8 +1162,82 @@ void DrawFrame(Application & app)
     presentInfo.pImageIndices = &imageIndex;
     presentInfo.pResults = nullptr; // Optional
 
-    vkQueuePresentKHR(app.m_presentQueue, &presentInfo); 
-    
+    result = vkQueuePresentKHR(app.m_presentQueue, &presentInfo);
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || app.m_framebufferResized)
+    {
+        app.m_framebufferResized = false;
+        RecreateSwapChain(app);
+    }
+    else if (result != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to present swap chain image!");
+    }
+
+    app.m_currentFrame = (app.m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
+}
+
+internal uint32 FindMemoryType(VkPhysicalDevice & physicalDevice, uint32 typeFilter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties memProperties;
+    vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
+
+    for (uint32 i = 0; i < memProperties.memoryTypeCount; i++)
+    {
+        if ((typeFilter & (1 << i)) &&
+            (memProperties.memoryTypes[i].propertyFlags & properties) == properties)
+        {
+            return i;
+        }
+    }
+
+    SM_ASSERT(false, "failed to find suitable memory type!");
+
+    return 0;
+}
+
+internal VertexBufferResult
+CreateAndBindVertexBuffer(VkDevice & device, VkPhysicalDevice & physicalDevice)
+{
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = ArrayCount(vertices) * sizeof(Vertex);
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    VkBuffer vertexBuffer = {};
+    if (vkCreateBuffer(device, &bufferInfo, nullptr, &vertexBuffer) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create vertex buffer");
+    }
+
+    VkMemoryRequirements memRequirements;
+    vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+
+    VkMemoryAllocateInfo allocateInfo = {};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocateInfo.allocationSize = memRequirements.size;
+    allocateInfo.memoryTypeIndex = FindMemoryType(physicalDevice,
+                                                  memRequirements.memoryTypeBits,
+                                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                                  VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    VkDeviceMemory vertexBufferMemory;
+    if (vkAllocateMemory(device, &allocateInfo, nullptr, &vertexBufferMemory) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to allocate vertex buffer memory!");
+    }
+
+    vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+
+    void * data;
+    vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+    memcpy(data, vertices, (uint32)bufferInfo.size);
+    vkUnmapMemory(device, vertexBufferMemory);
+
+    VertexBufferResult result = { vertexBuffer, vertexBufferMemory };
+
+    return result;
 }
 
 void InitVulkan(Application & app)
@@ -1075,10 +1258,9 @@ void InitVulkan(Application & app)
         app.m_swapChainImageFormat = createResult.m_swapChainImageFormat;
         app.m_swapChainExtent = createResult.m_swapChainExtent;
     }
-
     app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
-    app.m_renderPass = CreateRenderPass(app.m_device, app.m_swapChainImageFormat);
 
+    app.m_renderPass = CreateRenderPass(app.m_device, app.m_swapChainImageFormat);
     {
         CreateGraphicsPipelineResult result = CreateGraphicsPipeline(app.m_device, app.m_swapChainExtent, app.m_renderPass);
         app.m_pipelineLayout = result.m_pipelineLayout;
@@ -1087,54 +1269,60 @@ void InitVulkan(Application & app)
     
     app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_renderPass, app.m_swapChainExtent);
     app.m_commandPool = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
-    app.m_commandBuffer = CreateCommandBuffer(app.m_device, app.m_commandPool);
+
+    {
+        VertexBufferResult result = CreateAndBindVertexBuffer(app.m_device, app.m_physicalDevice);
+        app.m_vertexBuffer = result.m_vertexBuffer;
+        app.m_vertexBufferMemory = result.m_vertexBufferMemory;
+    }
+    
+    app.m_commandBuffers = CreateCommandBuffers(app.m_device, app.m_commandPool);
 
     {
         SyncObjects syncObjs = CreateSyncObjects(app.m_device);
-        app.m_imageAvailableSemaphore = syncObjs.m_imageAvailableSemaphore;
-        app.m_renderFinishedSemaphore = syncObjs.m_renderFinishedSemaphore;
-        app.m_inFlightFence =            syncObjs.m_inFlightFence;
+        app.m_imageAvailableSemaphores = syncObjs.m_imageAvailableSemaphores;
+        app.m_renderFinishedSemaphores = syncObjs.m_renderFinishedSemaphores;
+        app.m_inFlightFences =           syncObjs.m_inFlightFences;
     }
     
 }
-
 
 
 void InitWindow(Application & app)
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
     app.m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+
+    glfwSetWindowUserPointer(app.m_window, &app);
+    glfwSetFramebufferSizeCallback(app.m_window, FramebufferResizeCallback);
 }
+
 
 void CleanUp(Application & app)
 {
-    vkDestroySemaphore(app.m_device, app.m_imageAvailableSemaphore, nullptr);
-    vkDestroySemaphore(app.m_device, app.m_renderFinishedSemaphore, nullptr);
-    vkDestroyFence(app.m_device, app.m_inFlightFence, nullptr);
-    
-    vkDestroyCommandPool(app.m_device, app.m_commandPool, nullptr);
-    for (uint32 i = 0; i < app.m_swapChainFramebuffers.size(); i++)
+    CleanupSwapChain(app);
+    vkDestroyBuffer(app.m_device, app.m_vertexBuffer, nullptr);
+    vkFreeMemory(app.m_device, app.m_vertexBufferMemory, nullptr);
+    for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
-        vkDestroyFramebuffer(app.m_device, app.m_swapChainFramebuffers[i], nullptr);
+        vkDestroySemaphore(app.m_device, app.m_imageAvailableSemaphores[i], nullptr);
+        vkDestroySemaphore(app.m_device, app.m_renderFinishedSemaphores[i], nullptr);
+        vkDestroyFence(app.m_device, app.m_inFlightFences[i], nullptr);
     }
+    vkDestroyCommandPool(app.m_device, app.m_commandPool, nullptr);
     vkDestroyPipeline(app.m_device, app.m_graphicsPipline, nullptr);
     vkDestroyPipelineLayout(app.m_device, app.m_pipelineLayout, nullptr);
     vkDestroyRenderPass(app.m_device, app.m_renderPass, nullptr);
-    for (uint32 i = 0; i < app.m_swapChainImageViews.size(); i++)
-    {
-        vkDestroyImageView(app.m_device, app.m_swapChainImageViews[i], nullptr);
-    }
-    vkDestroySwapchainKHR(app.m_device, app.m_swapChain, nullptr);
     vkDestroyDevice(app.m_device, nullptr);
     if (enableValidationLayers)
     {
         DestroyDebugUtilsMessengerEXT(app.m_instance, app.m_debugMessenger, nullptr);
     }
-    
     vkDestroySurfaceKHR(app.m_instance, app.m_surface, nullptr);
     vkDestroyInstance(app.m_instance, nullptr);
+
+
     glfwDestroyWindow(app.m_window);
     glfwTerminate();
 }

@@ -183,6 +183,12 @@ struct Array
         return result;
     }
 
+    void Resize(int32 size)
+    {
+        SM_ASSERT(size <= maxElements, "size if larget than max elements");
+        count = size;
+    }
+
     void Copy(T * array, int32 arrayCount)
     {
         SM_ASSERT(arrayCount < maxElements, "Array size is to big copy!");
@@ -381,10 +387,6 @@ std::vector<char> read_file(char * filePath)
         file.resize(fileSize + 1);
         int _fileSize;
         read_file(filePath, &_fileSize, file.data());
-
-        SM_TRACE("file name: %s", filePath);
-        SM_TRACE("Read file size: %d", (uint32)fileSize);
-        SM_TRACE("Vector Size: %d", (uint32)file.size());
     }
 
     return file;
