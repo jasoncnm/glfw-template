@@ -7,11 +7,17 @@
    $Notice: $
    ======================================================================== */
 
+#include "engine_lib.h"
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <chrono>
+
+#define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <glm/glm.hpp>
-
-#include "engine_lib.h"
 
 //====================================================
 //      NOTE: Application Constexpr
@@ -67,17 +73,26 @@ struct Application
     VkSwapchainKHR             m_swapChain;
     VkFormat                   m_swapChainImageFormat;
     VkExtent2D                 m_swapChainExtent;
-    VkRenderPass               m_renderPass;    
+    VkRenderPass               m_renderPass;
+    VkDescriptorSetLayout      m_descriptorSetLayout;
     VkPipelineLayout           m_pipelineLayout;
     VkPipeline                 m_graphicsPipline;
     VkCommandPool              m_commandPool;
+    VkDescriptorPool           m_descriptorPool;
     VkBuffer                   m_vertexBuffer;
     VkDeviceMemory             m_vertexBufferMemory;
+    VkBuffer                   m_indexBuffer;
+    VkDeviceMemory             m_indexBufferMemory;
+
+    Array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> m_descriptorSets;
+    Array<VkBuffer,        MAX_FRAMES_IN_FLIGHT> m_uniformBuffers;
+    Array<VkDeviceMemory,  MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMemory;
+    Array<void *,          MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMapped;
+    Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> m_commandBuffers;
 
     std::vector<VkImage>       m_swapChainImages;
     std::vector<VkImageView>   m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;
-    Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT>  m_commandBuffers;
     // NOTE: Synchronization Object
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
@@ -135,10 +150,40 @@ struct BufferCreateResult
     VkDeviceMemory m_bufferMemory;
 };
 
+struct UniformBufferCreateResult
+{
+    Array<VkBuffer,       MAX_FRAMES_IN_FLIGHT> m_uniformBuffers;
+    Array<VkDeviceMemory, MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMemory;
+    Array<void *,         MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMapped;
+};
+
 struct Vertex
 {
     glm::vec2 m_pos;
     glm::vec3 m_color;
+};
+
+
+
+struct UniformBufferObject
+{
+
+/*
+==========================================================================================================
+                                                 IMPORTANT
+==========================================================================================================
+  Vulkan expects the data in your structure to be aligned in memory in a specific way, for example:
+  - Scalars have to be aligned by N (= 4 bytes given 32 bit floats).
+  - A vec2 must be aligned by 2N (= 8 bytes)
+  - A vec3 or vec4 must be aligned by 4N (= 16 bytes)
+  - A nested structure must be aligned by the base alignment of its members rounded up to a multiple of 16.
+  - A mat4 matrix must have the same alignment as a vec4.
+==========================================================================================================
+*/
+
+    glm::mat4 m_model;
+    glm::mat4 m_view;
+    glm::mat4 m_projection;
 };
 
 //====================================================
@@ -146,16 +191,23 @@ struct Vertex
 //====================================================
 constexpr Vertex vertices[] =
 {
-    { { 0.0f, -0.5f }, { 1.0f, 1.0f, 1.0f } },
-    { { 0.5f,  0.5f }, { 0.0f, 1.0f, 0.0f } },
-    { {-0.5f,  0.5f }, { 0.0f, 0.0f, 1.0f } }
+    { {-1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f } },
+    { { 1.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
+    { { 1.0f,  1.0f }, { 0.0f, 0.0f, 1.0f } },
+    { {-1.0f,  1.0f }, { 1.0f, 1.0f, 1.0f } }
 };
 
+constexpr uint16 vertexIndices[] =
+{
+    0, 1, 2, 2, 3, 0
+};
 
 //====================================================
 //      NOTE: Application Functions
 //====================================================
 void RunApplication(Application & app);
+
+void check_vk_result(VkResult err);
 
 #define APPLICATION_H
 #endif

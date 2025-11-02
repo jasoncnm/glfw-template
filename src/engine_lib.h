@@ -153,6 +153,8 @@ struct Array
     int count = 0;
     T elements[N];
 
+    Array(int count = 0) : count(count) {}
+    
     T & operator[](int idx)
     {
         SM_ASSERT(idx >= 0, "Idx negative!");
@@ -202,6 +204,14 @@ struct Array
             this->Add(array[i]);            
         }
         
+    }
+
+    void Fill(T element)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            elements[i] = element;            
+        }
     }
     
     void RemoveIdxAndSwap(int idx)

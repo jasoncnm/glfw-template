@@ -30,7 +30,16 @@ include_directories(third_party/imgui)
 
 
 #include and link  
-add_executable(${PROJECT_NAME} src/main.cpp src/application.cpp)
+add_executable(${PROJECT_NAME} 
+        src/main.cpp
+        src/application.cpp
+        src/build_imgui_backends.cpp
+        third_party/imgui/imgui.cpp
+        third_party/imgui/imgui_tables.cpp
+        third_party/imgui/imgui_widgets.cpp
+        third_party/imgui/imgui_demo.cpp
+        third_party/imgui/imgui_draw.cpp)
+
 target_link_libraries(${PROJECT_NAME} glfw glm)
 target_link_libraries(${PROJECT_NAME} vulkan-1.lib)
 
@@ -44,7 +53,7 @@ if ( CMAKE_COMPILER_IS_GNUCC )
 endif()
 
 if ( MSVC )
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_SLOW=1 -FC -Z7")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4324 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_SLOW=1 -FC -Z7")
 endif()
 
 set_target_properties(${PROJECT_NAME} 
