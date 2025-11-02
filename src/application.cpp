@@ -90,6 +90,14 @@ internal void InitVulkan(Application & app)
     
 }
 
+internal glm::vec3 HexToRGB(uint32 val)
+{
+    uint32 r = ( val >> 16 ) & 0xFF;
+    uint32 g = ( val >> 8  ) & 0xFF;
+    uint32 b = ( val >> 0  ) & 0xFF;
+    
+    return glm::vec3(r / 255.0f, g / 255.0f, b / 255.0f);    
+}
 
 internal void InitWindow(Application & app)
 {
@@ -99,6 +107,8 @@ internal void InitWindow(Application & app)
 
     glfwSetWindowUserPointer(app.m_window, &app);
     glfwSetFramebufferSizeCallback(app.m_window, FramebufferResizeCallback);
+
+    app.m_clearColor = glm::vec4(HexToRGB(0x2B7CB4), 1.0f);
 }
 
 internal void CleanUp(Application & app)

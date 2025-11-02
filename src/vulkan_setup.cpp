@@ -245,10 +245,13 @@ internal std::vector<const char *> GetRequiredExtensions()
 internal VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR> & availableFormats)
 {
     VkSurfaceFormatKHR result = availableFormats[0];
+
+    VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_PASS_THROUGH_EXT;
+    //VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     
     for (const auto & format : availableFormats)    
     {
-        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
+        if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace ==  colorSpace)
         {
             result = format;
             break;

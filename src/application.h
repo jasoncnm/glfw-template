@@ -13,6 +13,7 @@
 #define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 #include <chrono>
 
 #define GLFW_INCLUDE_NONE
@@ -22,7 +23,6 @@
 //====================================================
 //      NOTE: Application Constexpr
 //====================================================
-
 /*
 
   NOTE: APP_SLOW
@@ -36,8 +36,8 @@ constexpr bool enableValidationLayers = true;
 constexpr bool enableValidationLayers = false;
 #endif
 
-constexpr int32 WIDTH = 800;
-constexpr int32 HEIGHT = 600;
+constexpr int32 WIDTH = 1920;
+constexpr int32 HEIGHT = 1080;
 constexpr int32 MAX_FRAMES_IN_FLIGHT = 2;
 
 constexpr char * validationLayers[] =
@@ -60,7 +60,7 @@ struct Application
     uint32 m_currentFrame = 0;
     bool   m_framebufferResized = false;
 
-    glm::vec4 m_clearColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
+    glm::vec4 m_clearColor = glm::vec4(0);
     
     GLFWwindow *               m_window;
 
