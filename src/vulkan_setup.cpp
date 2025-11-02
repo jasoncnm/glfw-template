@@ -1159,16 +1159,25 @@ internal VkDescriptorSetLayout CreateDescriptiorSetLayout(VkDevice & device)
 
 internal VkDescriptorPool CreateDescriptorPool(VkDevice & device)
 {
-    VkDescriptorPoolSize poolSize = {};
-    poolSize.type = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    poolSize.descriptorCount = (uint32)MAX_FRAMES_IN_FLIGHT;
+    VkDescriptorPoolSize poolSizes[] = 
+        {
+            { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32)MAX_FRAMES_IN_FLIGHT },
+            { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE }
+        };
 
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    poolInfo.poolSizeCount = 1;
-    poolInfo.pPoolSizes = &poolSize;
-    poolInfo.maxSets = (uint32)MAX_FRAMES_IN_FLIGHT;
-
+    poolInfo.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    poolInfo.maxSets = 0;
+    for ( int i = 0; i < ArrayCount(poolSizes); i++)
+    {
+        VkDescriptorPoolSize & poolSize = poolSizes[i];
+        poolInfo.maxSets += poolSize.descriptorCount;
+    }
+    poolInfo.poolSizeCount = ArrayCount(poolSizes);
+    poolInfo.pPoolSizes = poolSizes;
+    
+    
     VkDescriptorPool pool;
 
     if (vkCreateDescriptorPool(device, &poolInfo, nullptr, &pool) != VK_SUCCESS)
@@ -1308,74 +1317,6 @@ internal VkPhysicalDevice PickPhysicalDevice(VkInstance & instance, VkSurfaceKHR
 }
 
 
-internal
-void RecordCommandBuffer(Application & app, uint32 imageIndex)
-{
-    VkCommandBuffer & commandBuffer = app.m_commandBuffers[app.m_currentFrame];
-    
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = 0;
-    beginInfo.pInheritanceInfo = nullptr;
-
-    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
-    {
-        SM_ASSERT(false, "failed to begine recording command buffer!");
-    }
-
-    VkRenderPassBeginInfo renderPassInfo = {};
-    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = app.m_renderPass;
-    renderPassInfo.framebuffer = app.m_swapChainFramebuffers[imageIndex];    
-    renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = app.m_swapChainExtent;
-
-    VkClearValue clearColor =  {{{0.0f, 0.0f, 0.0f, 1.0f}}};
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
-
-    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app.m_graphicsPipline);
-
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = (real32)app.m_swapChainExtent.width;
-    viewport.height = (real32)app.m_swapChainExtent.height;
-    viewport.minDepth = 0;
-    viewport.maxDepth = 1;
-    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
-
-    VkRect2D scissor = {};
-    scissor.offset = { 0, 0 };
-    scissor.extent = app.m_swapChainExtent;
-    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
-
-    VkBuffer vertexBuffers[] = { app.m_vertexBuffer };
-    VkDeviceSize offsets[] = { 0 };
-    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
-
-    vkCmdBindIndexBuffer(commandBuffer, app.m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
-
-    vkCmdBindDescriptorSets(commandBuffer,
-                            VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            app.m_pipelineLayout,
-                            0,
-                            1,
-                            &app.m_descriptorSets[app.m_currentFrame],
-                            0,
-                            nullptr);
-    
-    vkCmdDrawIndexed(commandBuffer, (uint32)ArrayCount(vertexIndices), 1, 0, 0, 0);
-    
-    vkCmdEndRenderPass(commandBuffer);
-
-    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
-    {
-        SM_ASSERT(false, "failed to record command buffer!");
-    }
-}
-
 internal void RecreateSwapChain(Application & app)
 {
     int32 width = 0, height = 0;
@@ -1419,8 +1360,79 @@ internal void UpdateUniformBuffer(Array<void *, MAX_FRAMES_IN_FLIGHT> uniformBuf
     
 }
 
+internal
+void RecordCommandBuffer(Application & app, uint32 imageIndex)
+{
+    VkCommandBuffer & commandBuffer = app.m_commandBuffers[app.m_currentFrame];
+    
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0;
+    beginInfo.pInheritanceInfo = nullptr;
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to begine recording command buffer!");
+    }
+
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = app.m_renderPass;
+    renderPassInfo.framebuffer = app.m_swapChainFramebuffers[imageIndex];    
+    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.extent = app.m_swapChainExtent;
+
+    VkClearValue clearColor =  { { app.m_clearColor.r, app.m_clearColor.g, app.m_clearColor.b, app.m_clearColor.a } };
+    renderPassInfo.clearValueCount = 1;
+    renderPassInfo.pClearValues = &clearColor;
+
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app.m_graphicsPipline);
+
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = (real32)app.m_swapChainExtent.width;
+    viewport.height = (real32)app.m_swapChainExtent.height;
+    viewport.minDepth = 0;
+    viewport.maxDepth = 1;
+    vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
+
+    VkRect2D scissor = {};
+    scissor.offset = { 0, 0 };
+    scissor.extent = app.m_swapChainExtent;
+    vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
+
+    VkBuffer vertexBuffers[] = { app.m_vertexBuffer };
+    VkDeviceSize offsets[] = { 0 };
+    vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
+
+    vkCmdBindIndexBuffer(commandBuffer, app.m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+
+    vkCmdBindDescriptorSets(commandBuffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            app.m_pipelineLayout,
+                            0,
+                            1,
+                            &app.m_descriptorSets[app.m_currentFrame],
+                            0,
+                            nullptr);
+    
+    vkCmdDrawIndexed(commandBuffer, (uint32)ArrayCount(vertexIndices), 1, 0, 0, 0);
+
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
+    
+    vkCmdEndRenderPass(commandBuffer);
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to record command buffer!");
+    }
+}
+
 internal void DrawFrame(Application & app)
 {
+
     vkWaitForFences(app.m_device, 1, &app.m_inFlightFences[app.m_currentFrame], VK_TRUE, UINT64_MAX);
 
     uint32 imageIndex;
@@ -1468,6 +1480,15 @@ internal void DrawFrame(Application & app)
         SM_ASSERT(false, "failed to submit draw command buffer!");
     }
 
+    
+    // Update and Render additional Platform Windows
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+    }
+
+
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     presentInfo.waitSemaphoreCount = ArrayCount(signalSemaphores);
@@ -1478,6 +1499,8 @@ internal void DrawFrame(Application & app)
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
     presentInfo.pResults = nullptr; // Optional
+
+    
 
     result = vkQueuePresentKHR(app.m_presentQueue, &presentInfo);
 

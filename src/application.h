@@ -59,6 +59,8 @@ struct Application
 
     uint32 m_currentFrame = 0;
     bool   m_framebufferResized = false;
+
+    glm::vec4 m_clearColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f);
     
     GLFWwindow *               m_window;
 
@@ -207,7 +209,14 @@ constexpr uint16 vertexIndices[] =
 //====================================================
 void RunApplication(Application & app);
 
-void check_vk_result(VkResult err);
+static void check_vk_result(VkResult err)
+{
+    if (err == 0)
+        return;
+    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+    if (err < 0)
+        abort();
+}
 
 #define APPLICATION_H
 #endif

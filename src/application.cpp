@@ -18,8 +18,8 @@
 //====================================================
 //      NOTE: Application Functions
 //====================================================
-#include "vulkan_setup.cpp"
 #include "imgui_setup.cpp"
+#include "vulkan_setup.cpp"
 
 
 internal void InitVulkan(Application & app)
@@ -103,6 +103,7 @@ internal void InitWindow(Application & app)
 
 internal void CleanUp(Application & app)
 {
+    CleanupImgui();
     CleanupSwapChain(app);
 
     for (uint32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -146,6 +147,10 @@ internal void MainLoop(Application & app)
     for ( ;!glfwWindowShouldClose(app.m_window); )
     {
         glfwPollEvents();
+        ImguiStartFrame(app);
+
+        // Rendering
+        ImGui::Render();
         DrawFrame(app);
     }
 
@@ -158,13 +163,8 @@ void RunApplication(Application & app)
     // NOTE: Run Application
     InitWindow(app);
     InitVulkan(app);
-    // InitImGui(app);
+    InitImGui(app);
     MainLoop(app);
     CleanUp(app);
-}
-
-void check_vk_result(VkResult err)
-{
-    SM_ASSERT(err == VK_SUCCESS, "error!");
 }
 
