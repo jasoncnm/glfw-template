@@ -58,7 +58,10 @@ struct Application
 {
 
     uint32 m_currentFrame = 0;
+    int32 m_joystick = -1;
+   
     bool   m_framebufferResized = false;
+    bool   m_vSync = false;
 
     glm::vec4 m_clearColor = glm::vec4(0.0f);
     real32 m_zoom = 2.0f;
@@ -166,11 +169,6 @@ struct Vertex
     glm::vec3 m_color;
 };
 
-struct Transform
-{
-    glm::vec3 m_pos;
-};
-
 struct UniformBufferObject
 {
 
@@ -232,6 +230,21 @@ internal glm::vec3 HexToRGB(uint32 val)
     uint32 b = ( val >> 0  ) & 0xFF;
     
     return glm::vec3(r / 255.0f, g / 255.0f, b / 255.0f);    
+}
+
+internal void PrintAvailableJoyStics()
+{
+    for (int i = GLFW_JOYSTICK_1; i < GLFW_JOYSTICK_LAST; i++)
+    {
+        if (glfwJoystickPresent(i) == GLFW_TRUE)
+        {
+            int count;
+            const float* axes = glfwGetJoystickAxes(i, &count);
+            const char* name = glfwGetJoystickName(i);
+            
+            SM_TRACE("\rjoystick %s is available, joystick id: %d, num axis %d", name, i, count);
+        }
+    }
 }
 
 #define APPLICATION_H

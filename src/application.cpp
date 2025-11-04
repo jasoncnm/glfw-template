@@ -125,6 +125,7 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     
     vkCmdDrawIndexed(commandBuffer, (uint32)ArrayCount(vertexIndices), 1, 0, 0, 0);
 
+    ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
     
     vkCmdEndRenderPass(commandBuffer);
@@ -291,16 +292,118 @@ internal void InitVulkan(Application & app)
     
 }
 
+internal void SetVSync(Application & app, bool enabled)
+{
+    if (enabled) glfwSwapInterval(1);
+    else glfwSwapInterval(0);
+
+    app.m_vSync = enabled;
+}
+
 internal void InitWindow(Application & app)
 {
-    glfwInit();
+    SM_ASSERT(glfwInit(), "Could not initilize GLFW!");
+    
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
     app.m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+    SM_ASSERT(app.m_window, "Could not create window");
+    SM_ASSERT(glfwVulkanSupported(), "GLFW: Vulkan Not Supported\n");
+
+    
+    GLFWmonitor * primaryMonitor = glfwGetPrimaryMonitor();
+    const GLFWvidmode * videoMode = glfwGetVideoMode(primaryMonitor);
+    int32 windowLeft = videoMode->width / 2 - WIDTH / 2;
+    int32 windowTop = videoMode->height / 2 - HEIGHT / 2;
+    glfwSetWindowPos(app.m_window, windowLeft, windowTop);
 
     glfwSetWindowUserPointer(app.m_window, &app);
     glfwSetFramebufferSizeCallback(app.m_window, FramebufferResizeCallback);
+    SetVSync(app, true);
 
     app.m_clearColor = glm::vec4(HexToRGB(0x2B7CB4), 1.0f);
+    if (glfwRawMouseMotionSupported())
+        glfwSetInputMode(app.m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+    
+    // NOTE: Set GLFW callbacks
+    glfwSetKeyCallback(app.m_window, [](GLFWwindow * _window, int32 key, int32 scancode, int32 action, int32 mods)
+    {
+        // Application * app = (Application *)glfwGetWindowUserPointer(_window);
+
+        switch(action)
+        {
+            case GLFW_PRESS:
+            {
+                const char * keyname = glfwGetKeyName(key, scancode);
+                SM_TRACE("presed key: %s", keyname); 
+                
+                break;
+            }
+            case GLFW_RELEASE:
+            {
+
+                const char * keyname = glfwGetKeyName(key, scancode);
+                SM_TRACE("released key: %s", keyname); 
+
+                break;
+            }
+            case GLFW_REPEAT:
+            {
+
+                const char * keyname = glfwGetKeyName(key, scancode);
+                SM_TRACE("repeated key: %s", keyname); 
+
+                break;
+            }
+            default: {}
+        }
+
+    });
+
+
+    glfwSetMouseButtonCallback(app.m_window, [](GLFWwindow * _window, int32 button, int32 action, int32 mods)
+    {
+        switch(action)
+        {
+            case GLFW_PRESS:
+            {
+                SM_TRACE("presed mouse button: %d", button);                
+                break;
+            }
+            case GLFW_RELEASE:
+            {
+                SM_TRACE("released mouse button: %d", button);                
+                break;
+            }
+            default: {}
+        }
+    });
+
+    glfwSetScrollCallback(app.m_window, [](GLFWwindow* window, double xoffset, double yoffset)
+    {
+        SM_TRACE("MouseScroll: (%.1f, %.1f)", xoffset, yoffset);
+    });
+
+    glfwSetCursorPosCallback(app.m_window, [](GLFWwindow* window, double xpos, double ypos)
+    {
+        SM_TRACE("mouse position: (%.2f, %.2f)", xpos, ypos);
+    });
+
+    glfwSetJoystickCallback ([](int jid, int event)
+    {
+        if (event == GLFW_CONNECTED)
+        {
+            // The joystick was connected
+            const char* name = glfwGetJoystickName(jid);
+            SM_TRACE("joystick %s is connected, joystick id: %d", name, jid);
+        }
+        else if (event == GLFW_DISCONNECTED)
+        {
+            // The joystick was disconnected
+            const char* name = glfwGetJoystickName(jid);
+            SM_TRACE("joystick %s is disconnected, joystick id: %d", name, jid);
+        }
+    });
+    
 }
 
 internal void CleanUp(Application & app)
@@ -349,10 +452,10 @@ internal void MainLoop(Application & app)
     for ( ;!glfwWindowShouldClose(app.m_window); )
     {
         glfwPollEvents();
+        //PrintAvailableJoyStics();
         ImguiStartFrame(app);
 
         // Rendering
-        ImGui::Render();
         DrawFrame(app);
     }
 
