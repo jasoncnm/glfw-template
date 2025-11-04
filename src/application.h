@@ -60,7 +60,8 @@ struct Application
     uint32 m_currentFrame = 0;
     bool   m_framebufferResized = false;
 
-    glm::vec4 m_clearColor = glm::vec4(0);
+    glm::vec4 m_clearColor = glm::vec4(0.0f);
+    real32 m_zoom = 2.0f;
     
     GLFWwindow *               m_window;
 
@@ -165,7 +166,10 @@ struct Vertex
     glm::vec3 m_color;
 };
 
-
+struct Transform
+{
+    glm::vec3 m_pos;
+};
 
 struct UniformBufferObject
 {
@@ -209,13 +213,25 @@ constexpr uint16 vertexIndices[] =
 //====================================================
 void RunApplication(Application & app);
 
-static void check_vk_result(VkResult err)
+internal void check_vk_result(VkResult err)
 {
     if (err == 0)
         return;
-    fprintf(stderr, "[vulkan] Error: VkResult = %d\n", err);
+
+    SM_ERROR("[vulkan] Error: VkResult = %d\n", err);
+
     if (err < 0)
-        abort();
+        DEBUG_BREAK();
+}
+
+
+internal glm::vec3 HexToRGB(uint32 val)
+{
+    uint32 r = ( val >> 16 ) & 0xFF;
+    uint32 g = ( val >> 8  ) & 0xFF;
+    uint32 b = ( val >> 0  ) & 0xFF;
+    
+    return glm::vec3(r / 255.0f, g / 255.0f, b / 255.0f);    
 }
 
 #define APPLICATION_H

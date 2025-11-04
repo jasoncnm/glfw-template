@@ -25,8 +25,11 @@ find_package (Vulkan REQUIRED)
 include_directories($ENV{VULKAN_SDK}/Include)
 link_directories($ENV{VULKAN_SDK}/Lib)
 
-# Setup Imgui include directory
+# Setup additional include directories
+
 include_directories(third_party/imgui)
+include_directories(third_party/stb)
+
 
 
 #include and link  
