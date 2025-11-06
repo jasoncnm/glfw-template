@@ -6,7 +6,8 @@
    $Notice: $
    ======================================================================== */
 
-#include "application.h"
+#include "build_imgui_backends.cpp"
+#include "application.cpp"
 
 int main()
 {

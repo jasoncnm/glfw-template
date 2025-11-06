@@ -39,6 +39,7 @@ constexpr bool enableValidationLayers = false;
 constexpr int32 WIDTH = 1920;
 constexpr int32 HEIGHT = 1080;
 constexpr int32 MAX_FRAMES_IN_FLIGHT = 2;
+constexpr char * TEXTURE_PATH = "resources/textures/awesomeface.png";
 
 constexpr char * validationLayers[] =
 {
@@ -85,6 +86,10 @@ struct Application
     VkPipeline                 m_graphicsPipline;
     VkCommandPool              m_commandPool;
     VkDescriptorPool           m_descriptorPool;
+
+    VkImage        m_textureImage;
+    VkDeviceMemory m_textureImageMemory;
+
     VkBuffer                   m_vertexBuffer;
     VkDeviceMemory             m_vertexBufferMemory;
     VkBuffer                   m_indexBuffer;
@@ -99,6 +104,7 @@ struct Application
     std::vector<VkImage>       m_swapChainImages;
     std::vector<VkImageView>   m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;
+
     // NOTE: Synchronization Object
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
@@ -156,6 +162,12 @@ struct BufferCreateResult
     VkDeviceMemory m_bufferMemory;
 };
 
+struct ImageCreateResult
+{
+    VkImage        m_image;
+    VkDeviceMemory m_imageMemory;
+};
+
 struct UniformBufferCreateResult
 {
     Array<VkBuffer,       MAX_FRAMES_IN_FLIGHT> m_uniformBuffers;
@@ -195,9 +207,9 @@ struct UniformBufferObject
 //====================================================
 constexpr Vertex vertices[] =
 {
-    { {-1.0f, -1.0f }, { 1.0f, 0.0f, 0.0f } },
-    { { 1.0f, -1.0f }, { 0.0f, 1.0f, 0.0f } },
-    { { 1.0f,  1.0f }, { 0.0f, 0.0f, 1.0f } },
+    { {-1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f } },
+    { { 1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f } },
+    { { 1.0f,  1.0f }, { 1.0f, 1.0f, 1.0f } },
     { {-1.0f,  1.0f }, { 1.0f, 1.0f, 1.0f } }
 };
 
@@ -210,18 +222,6 @@ constexpr uint16 vertexIndices[] =
 //      NOTE: Application Functions
 //====================================================
 void RunApplication(Application & app);
-
-internal void check_vk_result(VkResult err)
-{
-    if (err == 0)
-        return;
-
-    SM_ERROR("[vulkan] Error: VkResult = %d\n", err);
-
-    if (err < 0)
-        DEBUG_BREAK();
-}
-
 
 internal glm::vec3 HexToRGB(uint32 val)
 {

@@ -260,6 +260,12 @@ internal void InitVulkan(Application & app)
     app.m_commandPool           = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
 
     {
+        ImageCreateResult result  = CreateTextureImage(app.m_device, app.m_physicalDevice);
+        app.m_textureImage       = result.m_image;
+        app.m_textureImageMemory = result.m_imageMemory;
+    }
+    
+    {
         BufferCreateResult result = CreateAndBindVertexBuffer(app.m_device, app.m_commandPool, app.m_graphicsQueue, app.m_physicalDevice);
         app.m_vertexBuffer        = result.m_buffer;
         app.m_vertexBufferMemory  = result.m_bufferMemory;
@@ -334,7 +340,14 @@ internal void InitWindow(Application & app)
             case GLFW_PRESS:
             {
                 const char * keyname = glfwGetKeyName(key, scancode);
-                SM_TRACE("presed key: %s", keyname); 
+                if (keyname)
+                {
+                    SM_TRACE("presed key: %s", keyname);
+                }
+                else
+                {
+                    SM_TRACE("presed keycode: %d", key); 
+                }
                 
                 break;
             }
@@ -342,16 +355,30 @@ internal void InitWindow(Application & app)
             {
 
                 const char * keyname = glfwGetKeyName(key, scancode);
-                SM_TRACE("released key: %s", keyname); 
-
+                if (keyname)
+                {
+                    SM_TRACE("released key: %s", keyname);
+                }
+                else
+                {
+                    SM_TRACE("released keycode: %d", key); 
+                }
+                
                 break;
             }
             case GLFW_REPEAT:
             {
 
                 const char * keyname = glfwGetKeyName(key, scancode);
-                SM_TRACE("repeated key: %s", keyname); 
-
+                if (keyname)
+                {
+                    SM_TRACE("repeated key: %s", keyname);
+                }
+                else
+                {
+                    SM_TRACE("repeated keycode: %d", key); 
+                }
+                
                 break;
             }
             default: {}
@@ -385,7 +412,7 @@ internal void InitWindow(Application & app)
 
     glfwSetCursorPosCallback(app.m_window, [](GLFWwindow* window, double xpos, double ypos)
     {
-        SM_TRACE("mouse position: (%.2f, %.2f)", xpos, ypos);
+        // SM_TRACE("mouse position: (%.2f, %.2f)", xpos, ypos);
     });
 
     glfwSetJoystickCallback ([](int jid, int event)

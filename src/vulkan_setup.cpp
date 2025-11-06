@@ -246,8 +246,10 @@ internal VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceF
 {
     VkSurfaceFormatKHR result = availableFormats[0];
 
+    //VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_EXTENDED_SRGB_LINEAR_EXT ;
+
     VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_PASS_THROUGH_EXT;
-    //VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
+    // VkColorSpaceKHR colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR;
     
     for (const auto & format : availableFormats)    
     {
@@ -263,13 +265,13 @@ internal VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceF
 
 internal VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR> & availablePresentModes)
 {
-    VkPresentModeKHR result = VK_PRESENT_MODE_FIFO_KHR;
+        VkPresentModeKHR result = VK_PRESENT_MODE_FIFO_KHR;
 
-    for (const auto & presentMode : availablePresentModes)
-    {
-        if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+        for (const auto & presentMode : availablePresentModes)
         {
-            // NOTE: choose this mode if energy usage is not a concern (i.e Desktop PCs)
+            if (presentMode == VK_PRESENT_MODE_MAILBOX_KHR)
+            {
+                // NOTE: choose this mode if energy usage is not a concern (i.e Desktop PCs)
             result = presentMode;
             break;
         }
@@ -892,6 +894,56 @@ CreateCommandBuffers(VkDevice & device, VkCommandPool & commandPool)
     return commandBuffers;    
 }
 
+internal VkCommandBuffer BeginSingleTimeCommands(VkDevice & device, VkCommandPool & commandPool)
+{
+
+    VkCommandBufferAllocateInfo allocInfo = {};
+    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    allocInfo.commandPool = commandPool;
+    allocInfo.commandBufferCount = 1;
+
+    VkCommandBuffer commandBuffer;
+    
+    if (vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to allocate command buffers!");
+    }
+        
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to begine recording command buffer!");
+    }
+
+    return commandBuffer;    
+}
+
+internal void EndSingleTimeCommands(VkDevice & device, VkCommandBuffer & commandBuffer, VkQueue & graphicsQueue, VkCommandPool & commandPool)
+{
+
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to record command buffer!");
+    }
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &commandBuffer;
+    
+    if (vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to submit draw command buffer!");
+    }
+    vkQueueWaitIdle(graphicsQueue);
+
+    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+}
+
 internal SyncObjects
 CreateSyncObjects(VkDevice & device)
 {
@@ -1013,38 +1065,173 @@ internal void CopyBuffer(VkDevice & device,
                          VkBuffer dstBuffer,
                          VkDeviceSize size)
 {
-    VkCommandBufferAllocateInfo allocInfo = {};
-    allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    allocInfo.commandPool = commandPool;
-    allocInfo.commandBufferCount = 1;
-
-    VkCommandBuffer commandBuffer;
-    vkAllocateCommandBuffers(device, &allocInfo, &commandBuffer);
-
-    VkCommandBufferBeginInfo beginInfo = {};
-    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-    beginInfo.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
-
-    vkBeginCommandBuffer(commandBuffer, &beginInfo);
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands(device, commandPool);
 
     VkBufferCopy copyRegion = {};
     copyRegion.srcOffset = 0; // Optional
     copyRegion.dstOffset = 0; // Optional
     copyRegion.size = size;
+
+    // IMPORTANT
+    // srcBuffer must have been created with VK_BUFFER_USAGE_TRANSFER_SRC_BIT usage flag
+    // dstBuffer must have been created with VK_BUFFER_USAGE_TRANSFER_DST_BIT usage flag
     vkCmdCopyBuffer(commandBuffer, srcBuffer, dstBuffer, 1, &copyRegion);
 
-    vkEndCommandBuffer(commandBuffer);
+    EndSingleTimeCommands(device, commandBuffer, graphicsQueue, commandPool);
+}
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &commandBuffer;
+internal void CopyBufferToImage(VkDevice & device,
+                                VkCommandPool & commandPool,
+                                VkQueue & graphicsQueue,
+                                VkBuffer buffer,
+                                VkImage image,
+                                uint32 width,
+                                uint32 height)
+{
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands(device, commandPool);
 
-    vkQueueSubmit(graphicsQueue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(graphicsQueue);
+    VkBufferImageCopy region = {};
+    region.bufferOffset = 0;
+    region.bufferRowLength = 0;
+    region.bufferImageHeight = 0;
 
-    vkFreeCommandBuffers(device, commandPool, 1, &commandBuffer);
+    region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    region.imageSubresource.mipLevel = 0;
+    region.imageSubresource.baseArrayLayer = 0;
+    region.imageSubresource.layerCount = 1;
+
+    region.imageOffset = { 0, 0, 0 };
+    region.imageExtent = { width, height, 1 };
+
+    vkCmdCopyBufferToImage(commandBuffer, buffer, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
+
+    EndSingleTimeCommands(device, commandBuffer, graphicsQueue, commandPool);
+}
+
+internal ImageCreateResult CreateImage(VkDevice & device,
+                                       VkPhysicalDevice & physicalDevice,
+                                       uint32 width,
+                                       uint32 height,
+                                       VkFormat format,
+                                       VkImageTiling tiling,
+                                       VkImageUsageFlags usage,
+                                       VkMemoryPropertyFlags properties)
+{
+
+    VkImageCreateInfo imageInfo = {};
+    imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    imageInfo.extent.width = width;
+    imageInfo.extent.height = height;
+    imageInfo.extent.depth = 1;
+    imageInfo.mipLevels = 1;
+    imageInfo.arrayLayers = 1;
+    imageInfo.format = format;
+    imageInfo.tiling = tiling;
+    imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    imageInfo.usage = usage; 
+    imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.flags = 0; // Optional
+
+    VkImage image = {};
+    if (vkCreateImage(device, &imageInfo, nullptr, &image) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create image!");
+    }
+
+    VkMemoryRequirements memRequirements = {};
+    vkGetImageMemoryRequirements(device, image, &memRequirements);
+
+    VkMemoryAllocateInfo allocateInfo = {};
+    allocateInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    allocateInfo.allocationSize = memRequirements.size;
+    allocateInfo.memoryTypeIndex = FindMemoryType(physicalDevice,
+                                                  memRequirements.memoryTypeBits, properties);
+
+    VkDeviceMemory imageMemory;
+    if (vkAllocateMemory(device, &allocateInfo, nullptr, &imageMemory) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to allocate vertex buffer memory!");
+    }
+
+    vkBindImageMemory(device, image, imageMemory, 0);
+
+    ImageCreateResult result = { image, imageMemory };
+
+    return result;
+}
+
+internal ImageCreateResult
+CreateTextureImage(VkDevice & device, VkPhysicalDevice & physicalDevice)
+{
+// Standard parameters:
+//    int *x                 -- outputs image width in pixels
+//    int *y                 -- outputs image height in pixels
+//    int *channels_in_file  -- outputs # of image components in image file
+//    int desired_channels   -- if non-zero, # of image components requested in result
+    int x,y, channels_in_file;
+    unsigned char * imageData = stbi_load(TEXTURE_PATH, &x, &y, &channels_in_file, STBI_rgb_alpha);
+    SM_ASSERT(imageData, "failed to load texture image!");
+
+    VkDeviceSize imageSize = x * y * STBI_rgb_alpha;
+
+    
+    BufferCreateResult stagingBufferResult = CreateBuffer(device,
+                                                          physicalDevice,
+                                                          imageSize,
+                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+    
+    void * data;
+    vkMapMemory(device, stagingBufferResult.m_bufferMemory, 0, imageSize, 0, &data);
+    memcpy(data, imageData, (uint32)imageSize);
+    vkUnmapMemory(device, stagingBufferResult.m_bufferMemory);
+    
+    stbi_image_free(imageData);
+
+    ImageCreateResult result =  CreateImage(device,
+                                            physicalDevice,
+                                            (uint32)x,
+                                            (uint32)y,
+                                            VK_FORMAT_R8G8B8A8_SRGB,
+                                            VK_IMAGE_TILING_OPTIMAL,
+                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                            VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    return result;
+    
+}
+
+internal void TransitionImageLayout(VkDevice & device,
+                           VkCommandPool & commandPool,
+                           VkQueue & graphicsQueue,
+                           VkImage & image,
+                           VkFormat & format,
+                           VkImageLayout & oldLayout,
+                           VkImageLayout & newLayout)
+{
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands(device, commandPool);
+
+    VkImageMemoryBarrier barrier = {};
+    barrier.oldLayout = oldLayout;
+    barrier.newLayout = newLayout;
+    // NOTE: If you are using the barrier to transfer queue family ownership,
+    //       then these two fields should be the indices of the queue families.
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.image = image;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseMipLevel = 0;
+    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+
+    barrier.srcAccessMask = 0; // TODO
+    barrier.dstAccessMask = 0; // TODO
+
+    vkCmdPipelineBarrier(commandBuffer, 0 /* TODO */, 0 /* TODO */, 0, 0, nullptr, 0, nullptr, 1, &barrier);
+    
+    EndSingleTimeCommands(device, commandBuffer, graphicsQueue, commandPool);
 }
 
 internal BufferCreateResult
@@ -1061,6 +1248,7 @@ CreateAndBindVertexBuffer(VkDevice & device,
                                                           VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     void * data;
+    // NOTE: memory must have been created with a memory type that reports VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     vkMapMemory(device, staginBufferResult.m_bufferMemory, 0, bufferSize, 0, &data);
     memcpy(data, vertices, (uint32)bufferSize);
     vkUnmapMemory(device, staginBufferResult.m_bufferMemory);

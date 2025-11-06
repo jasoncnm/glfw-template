@@ -30,33 +30,20 @@ link_directories($ENV{VULKAN_SDK}/Lib)
 include_directories(third_party/imgui)
 include_directories(third_party/stb)
 
-
-
 #include and link  
-add_executable(${PROJECT_NAME} 
-        src/main.cpp
-        src/application.cpp
-        src/build_imgui_backends.cpp
-        third_party/imgui/imgui.cpp
-        third_party/imgui/imgui_tables.cpp
-        third_party/imgui/imgui_widgets.cpp
-        third_party/imgui/imgui_demo.cpp
-        third_party/imgui/imgui_draw.cpp)
+add_executable(${PROJECT_NAME} src/main.cpp)
 
 target_link_libraries(${PROJECT_NAME} glfw glm)
 target_link_libraries(${PROJECT_NAME} vulkan-1.lib)
 
-
-#Add address sanitizer
-add_compile_options(-fsanitize=address)
-add_link_options(-fsanitize=address)
 
 if ( CMAKE_COMPILER_IS_GNUCC )
     set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra -Werror -DAPP_SLOW=1")
 endif()
 
 if ( MSVC )
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4324 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_SLOW=1 -FC -Z7")
+    set(CMAKE_EXE_LINKER_FLAGS  "-incremental:no -opt:ref")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -fsanitize=address -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4324 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_SLOW=1 -FC -Z7")
 endif()
 
 set_target_properties(${PROJECT_NAME} 
