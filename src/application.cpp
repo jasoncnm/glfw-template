@@ -260,7 +260,7 @@ internal void InitVulkan(Application & app)
     app.m_commandPool           = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
 
     {
-        ImageCreateResult result  = CreateTextureImage(app.m_device, app.m_physicalDevice);
+        ImageCreateResult result = CreateTextureImage(app.m_device, app.m_physicalDevice, app.m_commandPool, app.m_graphicsQueue);
         app.m_textureImage       = result.m_image;
         app.m_textureImageMemory = result.m_imageMemory;
     }
@@ -297,14 +297,7 @@ internal void InitVulkan(Application & app)
     }
     
 }
-
-internal void SetVSync(Application & app, bool enabled)
-{
-    if (enabled) glfwSwapInterval(1);
-    else glfwSwapInterval(0);
-
-    app.m_vSync = enabled;
-}
+    
 
 internal void InitWindow(Application & app)
 {
@@ -315,6 +308,8 @@ internal void InitWindow(Application & app)
     SM_ASSERT(app.m_window, "Could not create window");
     SM_ASSERT(glfwVulkanSupported(), "GLFW: Vulkan Not Supported\n");
 
+    app.m_clearColor = glm::vec4(HexToRGB(0x2B7CB4), 1.0f);
+
     
     GLFWmonitor * primaryMonitor = glfwGetPrimaryMonitor();
     const GLFWvidmode * videoMode = glfwGetVideoMode(primaryMonitor);
@@ -324,9 +319,12 @@ internal void InitWindow(Application & app)
 
     glfwSetWindowUserPointer(app.m_window, &app);
     glfwSetFramebufferSizeCallback(app.m_window, FramebufferResizeCallback);
-    SetVSync(app, true);
 
-    app.m_clearColor = glm::vec4(HexToRGB(0x2B7CB4), 1.0f);
+    // NOTE: SetVSync;
+    glfwSwapInterval(1);
+    app.m_vSync = true;
+
+    // NOTE: Set MouseInputOptions
     if (glfwRawMouseMotionSupported())
         glfwSetInputMode(app.m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
     
@@ -438,6 +436,9 @@ internal void CleanUp(Application & app)
     CleanupImgui();
     CleanupSwapChain(app);
 
+    vkDestroyImage(app.m_device, app.m_textureImage, nullptr);
+    vkFreeMemory(app.m_device, app.m_textureImageMemory, nullptr);
+
     for (uint32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         vkDestroyBuffer(app.m_device, app.m_uniformBuffers[i], nullptr);
@@ -473,7 +474,6 @@ internal void CleanUp(Application & app)
 }
 
 
-// NOTE: call at each frame
 internal void MainLoop(Application & app)
 {
     for ( ;!glfwWindowShouldClose(app.m_window); )

@@ -59,7 +59,13 @@ internal void InitImGui(Application & app)
     init_info.PipelineInfoMain.RenderPass = app.m_renderPass;
     init_info.PipelineInfoMain.Subpass = 0;
     init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-    init_info.CheckVkResultFn = check_vk_result;
+
+    init_info.CheckVkResultFn =
+        [](VkResult result)
+        {
+            SM_ASSERT(result == VK_SUCCESS, "failed to initialize vulkan imgui! error code %d", result);
+        };
+    
     ImGui_ImplVulkan_Init(&init_info);
 }
 
@@ -126,8 +132,4 @@ internal void ImguiStartFrame(Application & app)
         ImGui::End();
     }
 
-}
-
-internal void RenderImguiFrame(Application & app)
-{
 }
