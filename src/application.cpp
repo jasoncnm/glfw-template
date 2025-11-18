@@ -35,6 +35,7 @@ internal void RecreateSwapChain(Application & app)
     }
     
     vkDeviceWaitIdle(app.m_device);
+
     CleanupSwapChain(app);
     
     // NOTE: swapchain, images, format, extent creation
@@ -46,7 +47,18 @@ internal void RecreateSwapChain(Application & app)
         app.m_swapChainExtent = createResult.m_swapChainExtent;
     }
     app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
-    app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_renderPass, app.m_swapChainExtent);
+
+    
+    {
+        DepthResourcesCreateResult result = CreateDepthResources(app.m_device, app.m_physicalDevice, app.m_swapChainExtent);
+
+        app.m_depthImage       = result.m_depthImageResult.m_image;
+        app.m_depthImageMemory = result.m_depthImageResult.m_imageMemory;
+        app.m_depthImageView   = result.m_depthImageView;
+    }
+
+    
+    app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_depthImageView, app.m_renderPass, app.m_swapChainExtent);
 }
 
 internal void UpdateUniformBuffer(Application & app)
@@ -54,7 +66,8 @@ internal void UpdateUniformBuffer(Application & app)
     local_persist auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     real32 timeElapsed = std::chrono::duration<real32, std::chrono::seconds::period>(currentTime - startTime).count();
-
+    //real32 timeElapsed = -0.5;
+    
     UniformBufferObject ubo = {};
     ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
     ubo.m_view       = glm::lookAt(glm::vec3(2.0f, 2.0f, app.m_zoom), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -88,8 +101,11 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     renderPassInfo.renderArea.extent = app.m_swapChainExtent;
 
     VkClearValue clearColor =  { { app.m_clearColor.r, app.m_clearColor.g, app.m_clearColor.b, app.m_clearColor.a } };
-    renderPassInfo.clearValueCount = 1;
-    renderPassInfo.pClearValues = &clearColor;
+    VkClearValue clearDepthStencil = { 1.0f, 0 };
+
+    VkClearValue clearValues[] = { clearColor, clearDepthStencil };
+    renderPassInfo.clearValueCount = ArrayCount(clearValues);
+    renderPassInfo.pClearValues = clearValues;
 
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, app.m_graphicsPipline);
@@ -245,8 +261,8 @@ internal void InitVulkan(Application & app)
     }
 
     app.m_swapChainImageViews = CreateImageViews(app.m_swapChainImages, app.m_device, app.m_swapChainImageFormat);
-    app.m_renderPass          = CreateRenderPass(app.m_device, app.m_swapChainImageFormat);
-    app.m_descriptorSetLayout = CreateDescriptiorSetLayout(app.m_device);    
+    app.m_renderPass          = CreateRenderPass(app.m_device, app.m_physicalDevice, app.m_swapChainImageFormat);
+    app.m_descriptorSetLayout = CreateDescriptorSetLayout(app.m_device);    
 
     {
         CreateGraphicsPipelineResult result =
@@ -256,14 +272,26 @@ internal void InitVulkan(Application & app)
         app.m_graphicsPipline = result.m_graphicsPipline;
     }
     
-    app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_renderPass, app.m_swapChainExtent);
-    app.m_commandPool           = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
-
+    app.m_commandPool = CreateCommandPool(app.m_device, app.m_physicalDevice, app.m_surface);
+    
     {
         ImageCreateResult result = CreateTextureImage(app.m_device, app.m_physicalDevice, app.m_commandPool, app.m_graphicsQueue);
         app.m_textureImage       = result.m_image;
         app.m_textureImageMemory = result.m_imageMemory;
     }
+    
+    app.m_textureImageView = CreateTextureImageView(app.m_device, app.m_textureImage);
+    app.m_textureSampler   = CreateTextureSampler(app.m_device, app.m_physicalDevice);
+
+    {
+        DepthResourcesCreateResult result = CreateDepthResources(app.m_device, app.m_physicalDevice, app.m_swapChainExtent);
+
+        app.m_depthImage       = result.m_depthImageResult.m_image;
+        app.m_depthImageMemory = result.m_depthImageResult.m_imageMemory;
+        app.m_depthImageView   = result.m_depthImageView;
+    }
+
+    app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_depthImageView, app.m_renderPass, app.m_swapChainExtent);
     
     {
         BufferCreateResult result = CreateAndBindVertexBuffer(app.m_device, app.m_commandPool, app.m_graphicsQueue, app.m_physicalDevice);
@@ -285,7 +313,12 @@ internal void InitVulkan(Application & app)
     }
 
     app.m_descriptorPool = CreateDescriptorPool(app.m_device);
-    app.m_descriptorSets = CreateDescriptorSets(app.m_device, app.m_uniformBuffers, app.m_descriptorPool, app.m_descriptorSetLayout);
+    app.m_descriptorSets = CreateDescriptorSets(app.m_device,
+                                                app.m_uniformBuffers,
+                                                app.m_descriptorPool,
+                                                app.m_descriptorSetLayout,
+                                                app.m_textureImageView,
+                                                app.m_textureSampler);
     
     app.m_commandBuffers = CreateCommandBuffers(app.m_device, app.m_commandPool);
 
@@ -308,7 +341,7 @@ internal void InitWindow(Application & app)
     SM_ASSERT(app.m_window, "Could not create window");
     SM_ASSERT(glfwVulkanSupported(), "GLFW: Vulkan Not Supported\n");
 
-    app.m_clearColor = glm::vec4(HexToRGB(0x2B7CB4), 1.0f);
+    app.m_clearColor = glm::vec4(HexToRGB(0x142A9C), 1.0f);
 
     
     GLFWmonitor * primaryMonitor = glfwGetPrimaryMonitor();
@@ -436,6 +469,8 @@ internal void CleanUp(Application & app)
     CleanupImgui();
     CleanupSwapChain(app);
 
+    vkDestroySampler(app.m_device, app.m_textureSampler, nullptr);
+    vkDestroyImageView(app.m_device, app.m_textureImageView, nullptr);
     vkDestroyImage(app.m_device, app.m_textureImage, nullptr);
     vkFreeMemory(app.m_device, app.m_textureImageMemory, nullptr);
 

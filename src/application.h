@@ -10,7 +10,7 @@
 #include "engine_lib.h"
 
 #define GLM_FORCE_RADIANS
-#define GLM_FORCE_DEFAULT_ALIGNED_GENTYPES
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -39,7 +39,7 @@ constexpr bool enableValidationLayers = false;
 constexpr int32 WIDTH = 1920;
 constexpr int32 HEIGHT = 1080;
 constexpr int32 MAX_FRAMES_IN_FLIGHT = 2;
-constexpr char * TEXTURE_PATH = "resources/textures/awesomeface.png";
+constexpr char * TEXTURE_PATH = "resources/textures/brickwall.jpg";
 
 constexpr char * validationLayers[] =
 {
@@ -89,6 +89,12 @@ struct Application
 
     VkImage        m_textureImage;
     VkDeviceMemory m_textureImageMemory;
+    VkImageView    m_textureImageView;
+    VkSampler      m_textureSampler;
+
+    VkImage        m_depthImage;
+    VkDeviceMemory m_depthImageMemory;
+    VkImageView    m_depthImageView;
 
     VkBuffer                   m_vertexBuffer;
     VkDeviceMemory             m_vertexBufferMemory;
@@ -168,6 +174,12 @@ struct ImageCreateResult
     VkDeviceMemory m_imageMemory;
 };
 
+struct DepthResourcesCreateResult
+{
+    ImageCreateResult m_depthImageResult;
+    VkImageView    m_depthImageView;
+};
+
 struct UniformBufferCreateResult
 {
     Array<VkBuffer,       MAX_FRAMES_IN_FLIGHT> m_uniformBuffers;
@@ -177,8 +189,9 @@ struct UniformBufferCreateResult
 
 struct Vertex
 {
-    glm::vec2 m_pos;
+    glm::vec3 m_pos;
     glm::vec3 m_color;
+    glm::vec2 m_texCoord;
 };
 
 struct UniformBufferObject
@@ -207,15 +220,20 @@ struct UniformBufferObject
 //====================================================
 constexpr Vertex vertices[] =
 {
-    { {-1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f } },
-    { { 1.0f, -1.0f }, { 0.0f, 0.0f, 0.0f } },
-    { { 1.0f,  1.0f }, { 1.0f, 1.0f, 1.0f } },
-    { {-1.0f,  1.0f }, { 1.0f, 1.0f, 1.0f } }
+    { {-0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+    { { 0.5f, -0.5f, 0.0f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+    { { 0.5f,  0.5f, 0.0f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+    { {-0.5f,  0.5f, 0.0f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
+    { {-0.5f, -0.5f, -0.5f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
+    { { 0.5f, -0.5f, -0.5f }, { 0.0f, 1.0f, 0.0f }, { 0.0f, 0.0f } },
+    { { 0.5f,  0.5f, -0.5f }, { 0.0f, 0.0f, 1.0f }, { 0.0f, 1.0f } },
+    { {-0.5f,  0.5f, -0.5f }, { 1.0f, 1.0f, 1.0f }, { 1.0f, 1.0f } },
 };
 
 constexpr uint16 vertexIndices[] =
 {
-    0, 1, 2, 2, 3, 0
+    0, 1, 2, 2, 3, 0,
+    0+4, 1+4, 2+4, 2+4, 3+4, 0+4,
 };
 
 //====================================================

@@ -5,8 +5,8 @@
    $Creator: Junjie Mao $
    $Notice: $
    ======================================================================== */
+internal QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device, VkSurfaceKHR  surface);
 
-internal QueueFamilyIndices FindQueueFamilies(const VkPhysicalDevice & device, const VkSurfaceKHR  & surface);
 internal void InitImGui(Application & app)
 {
     // Setup Dear ImGui context
