@@ -9,16 +9,20 @@
 
 #include "engine_lib.h"
 
+#define GLFW_INCLUDE_NONE
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include <chrono>
+#include <glm/gtx/hash.hpp>
 
-#define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+#include <chrono>
+#include <unordered_map>
 
 //====================================================
 //      NOTE: Application Constexpr
@@ -39,7 +43,6 @@ constexpr bool enableValidationLayers = false;
 constexpr int32 WIDTH = 1920;
 constexpr int32 HEIGHT = 1080;
 constexpr int32 MAX_FRAMES_IN_FLIGHT = 2;
-constexpr char * TEXTURE_PATH = "resources/textures/brickwall.jpg";
 
 constexpr char * validationLayers[] =
 {
@@ -51,10 +54,52 @@ constexpr char * deviceExtensions[] =
     VK_KHR_SWAPCHAIN_EXTENSION_NAME    
 };
 
+constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
+constexpr char * MODEL_PATH   = "resources/objects/viking_room/viking_room.obj";
 
 //====================================================
 //      NOTE: Application Structs
 //====================================================
+
+struct Vertex
+{
+    glm::vec3 m_pos;
+    glm::vec3 m_color;
+    glm::vec2 m_texCoord;
+
+    bool operator==(const Vertex & other) const
+    {
+        return m_pos == other.m_pos && m_color == other.m_color && m_texCoord == other.m_texCoord;
+    }
+};
+
+struct UniformBufferObject
+{
+
+/*
+==========================================================================================================
+                                                 IMPORTANT
+==========================================================================================================
+  Vulkan expects the data in your structure to be aligned in memory in a specific way, for example:
+  - Scalars have to be aligned by N (= 4 bytes given 32 bit floats).
+  - A vec2 must be aligned by 2N (= 8 bytes)
+  - A vec3 or vec4 must be aligned by 4N (= 16 bytes)
+  - A nested structure must be aligned by the base alignment of its members rounded up to a multiple of 16.
+  - A mat4 matrix must have the same alignment as a vec4.
+==========================================================================================================
+*/
+
+    glm::mat4 m_model;
+    glm::mat4 m_view;
+    glm::mat4 m_projection;
+};
+
+struct Model
+{
+    std::vector<Vertex> m_vertices;
+    std::vector<uint32> m_indices;
+};
+
 struct Application
 {
 
@@ -95,7 +140,7 @@ struct Application
     VkImage        m_depthImage;
     VkDeviceMemory m_depthImageMemory;
     VkImageView    m_depthImageView;
-
+    
     VkBuffer                   m_vertexBuffer;
     VkDeviceMemory             m_vertexBufferMemory;
     VkBuffer                   m_indexBuffer;
@@ -115,6 +160,9 @@ struct Application
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
     Array<VkFence, MAX_FRAMES_IN_FLIGHT>     m_inFlightFences;
+
+    Model m_model;
+
 };
 
 struct IsDeviceSuitableResult
@@ -187,37 +235,10 @@ struct UniformBufferCreateResult
     Array<void *,         MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMapped;
 };
 
-struct Vertex
-{
-    glm::vec3 m_pos;
-    glm::vec3 m_color;
-    glm::vec2 m_texCoord;
-};
-
-struct UniformBufferObject
-{
-
-/*
-==========================================================================================================
-                                                 IMPORTANT
-==========================================================================================================
-  Vulkan expects the data in your structure to be aligned in memory in a specific way, for example:
-  - Scalars have to be aligned by N (= 4 bytes given 32 bit floats).
-  - A vec2 must be aligned by 2N (= 8 bytes)
-  - A vec3 or vec4 must be aligned by 4N (= 16 bytes)
-  - A nested structure must be aligned by the base alignment of its members rounded up to a multiple of 16.
-  - A mat4 matrix must have the same alignment as a vec4.
-==========================================================================================================
-*/
-
-    glm::mat4 m_model;
-    glm::mat4 m_view;
-    glm::mat4 m_projection;
-};
-
 //====================================================
 //      NOTE: Application Globals
 //====================================================
+#if 0
 constexpr Vertex vertices[] =
 {
     { {-0.5f, -0.5f, 0.0f }, { 1.0f, 0.0f, 0.0f }, { 1.0f, 0.0f } },
@@ -235,7 +256,7 @@ constexpr uint16 vertexIndices[] =
     0, 1, 2, 2, 3, 0,
     0+4, 1+4, 2+4, 2+4, 3+4, 0+4,
 };
-
+#endif
 //====================================================
 //      NOTE: Application Functions
 //====================================================
@@ -250,20 +271,22 @@ internal glm::vec3 HexToRGB(uint32 val)
     return glm::vec3(r / 255.0f, g / 255.0f, b / 255.0f);    
 }
 
-internal void PrintAvailableJoyStics()
+internal uint32 VertexHash(const Vertex & vertex)
 {
-    for (int i = GLFW_JOYSTICK_1; i < GLFW_JOYSTICK_LAST; i++)
-    {
-        if (glfwJoystickPresent(i) == GLFW_TRUE)
-        {
-            int count;
-            const float* axes = glfwGetJoystickAxes(i, &count);
-            const char* name = glfwGetJoystickName(i);
-            
-            SM_TRACE("\rjoystick %s is available, joystick id: %d, num axis %d", name, i, count);
-        }
-    }
+    uint32 h1 = (uint32)std::hash<glm::vec3>()(vertex.m_pos);
+    uint32 h2 = (uint32)std::hash<glm::vec3>()(vertex.m_color);
+    uint32 h3 = (uint32)std::hash<glm::vec2>()(vertex.m_texCoord);
+
+    return ((h1 ^ (h2 << 1)) >> 1) ^ (h3 << 1);
 }
+
+template<> struct std::hash<Vertex>
+{
+    size_t operator()(Vertex const& vertex) const
+    {
+        return VertexHash(vertex);
+    }
+};
 
 #define APPLICATION_H
 #endif

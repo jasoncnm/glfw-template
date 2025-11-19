@@ -10,13 +10,23 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include "tiny_obj_loader.h"
+
 #include "imgui.h"
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 
-#define GLFW_INCLUDE_NONE
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+/*
+
+TODO: Things that I can do
+  - Basic perspective camera control
+  - Impliment custom hash map without using std::hash and std::unordered_map
+  - Impliment custom arena allocator for vulkan object allocations
+  - Continue mipmaping tutorial
+  - Draw shader arts 
+*/
+
 
 //====================================================
 //      NOTE: Application Functions
@@ -66,7 +76,7 @@ internal void UpdateUniformBuffer(Application & app)
     local_persist auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     real32 timeElapsed = std::chrono::duration<real32, std::chrono::seconds::period>(currentTime - startTime).count();
-    //real32 timeElapsed = -0.5;
+    timeElapsed = 0.0f;
     
     UniformBufferObject ubo = {};
     ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -128,7 +138,7 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
 
-    vkCmdBindIndexBuffer(commandBuffer, app.m_indexBuffer, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindIndexBuffer(commandBuffer, app.m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
 
     vkCmdBindDescriptorSets(commandBuffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -138,8 +148,8 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
                             &app.m_descriptorSets[app.m_currentFrame],
                             0,
                             nullptr);
-    
-    vkCmdDrawIndexed(commandBuffer, (uint32)ArrayCount(vertexIndices), 1, 0, 0, 0);
+
+    vkCmdDrawIndexed(commandBuffer, (uint32)app.m_model.m_indices.size(), 1, 0, 0, 0);
 
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
@@ -239,9 +249,88 @@ internal void DrawFrame(Application & app)
     app.m_currentFrame = (app.m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+internal Model LoadModel()
+{
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn;
+    std::string err;
+
+    bool ret = !tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH);
+    if (!warn.empty())
+    {
+        SM_WARN("%s", warn.c_str());
+    }
+    if (!err.empty())
+    {
+        SM_ASSERT(false, "failed to load object file, err: %s", err.c_str());
+        // SM_ERROR("%s", err.c_str());
+    }
+
+    std::unordered_map<Vertex, uint32> uniqueVertices = {};
+    Model model = {};
+
+    // Loop over shapes
+    for (size_t s = 0; s < shapes.size(); s++)
+    {
+        // Loop over faces(polygon)
+        size_t index_offset = 0;
+        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++)
+        {
+            size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+
+            // Loop over vertices in the face.
+            for (size_t v = 0; v < fv; v++)
+            {
+                Vertex vertex = {};
+
+                // access to vertex
+                tinyobj::index_t idx = shapes[s].mesh.indices[index_offset + v];
+
+                vertex.m_pos.x = attrib.vertices[3*size_t(idx.vertex_index)+0];
+                vertex.m_pos.y = attrib.vertices[3*size_t(idx.vertex_index)+1];
+                vertex.m_pos.z = attrib.vertices[3*size_t(idx.vertex_index)+2];
+
+                // Check if `normal_index` is zero or positive. negative = no normal data
+                if (idx.normal_index >= 0) {
+                    tinyobj::real_t nx = attrib.normals[3*size_t(idx.normal_index)+0];
+                    tinyobj::real_t ny = attrib.normals[3*size_t(idx.normal_index)+1];
+                    tinyobj::real_t nz = attrib.normals[3*size_t(idx.normal_index)+2];
+                }
+
+                // Check if `texcoord_index` is zero or positive. negative = no texcoord data
+                if (idx.texcoord_index >= 0) {
+                    vertex.m_texCoord.x = attrib.texcoords[2*size_t(idx.texcoord_index)+0];
+                    vertex.m_texCoord.y = 1.0f - attrib.texcoords[2*size_t(idx.texcoord_index)+1];
+                }
+
+                vertex.m_color = { 1.0f, 1.0f, 1.0f };
+            
+                if (uniqueVertices.count(vertex) == 0)
+                {
+                    uniqueVertices[vertex] = (uint32)model.m_vertices.size();
+                    model.m_vertices.push_back(vertex);
+                }
+                
+                model.m_indices.push_back(uniqueVertices[vertex]);
+            }
+            
+            index_offset += fv;
+            // per-face material
+            // shapes[s].mesh.material_ids[f];
+        }
+    }
+
+    size_t vertexSize = model.m_vertices.size();
+    
+    return model;
+}
 
 internal void InitVulkan(Application & app)
 {
+    app.m_model = LoadModel();
+    
     app.m_instance       = CreateVkInstance();
     app.m_debugMessenger = SetupDebugMessenger(app.m_instance);
     app.m_surface        = CreateSurface(app.m_window, app.m_instance);
@@ -294,13 +383,13 @@ internal void InitVulkan(Application & app)
     app.m_swapChainFramebuffers = CreateFramebuffers(app.m_device, app.m_swapChainImageViews, app.m_depthImageView, app.m_renderPass, app.m_swapChainExtent);
     
     {
-        BufferCreateResult result = CreateAndBindVertexBuffer(app.m_device, app.m_commandPool, app.m_graphicsQueue, app.m_physicalDevice);
+        BufferCreateResult result = CreateAndBindVertexBuffer(app.m_device, app.m_commandPool, app.m_graphicsQueue, app.m_physicalDevice, app.m_model.m_vertices);
         app.m_vertexBuffer        = result.m_buffer;
         app.m_vertexBufferMemory  = result.m_bufferMemory;
     }
 
     {
-        BufferCreateResult result = CreateAndBindIndexBuffer(app.m_device, app.m_commandPool, app.m_graphicsQueue, app.m_physicalDevice);
+        BufferCreateResult result = CreateAndBindIndexBuffer(app.m_device, app.m_commandPool, app.m_graphicsQueue, app.m_physicalDevice, app.m_model.m_indices);
         app.m_indexBuffer         = result.m_buffer;
         app.m_indexBufferMemory   = result.m_bufferMemory;
     }

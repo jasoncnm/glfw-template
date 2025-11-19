@@ -29,6 +29,7 @@ link_directories($ENV{VULKAN_SDK}/Lib)
 
 include_directories(third_party/imgui)
 include_directories(third_party/stb)
+include_directories(third_party/tiny_obj_loader)
 
 #include and link  
 add_executable(${PROJECT_NAME} src/main.cpp src/build_imgui_backends.cpp)

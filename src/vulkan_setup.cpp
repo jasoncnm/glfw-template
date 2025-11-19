@@ -1372,9 +1372,11 @@ internal BufferCreateResult
 CreateAndBindVertexBuffer(VkDevice device,
                           VkCommandPool commandPool,
                           VkQueue graphicsQueue,
-                          VkPhysicalDevice physicalDevice)
+                          VkPhysicalDevice physicalDevice,
+                          std::vector<Vertex> & vertices)
 {
-    VkDeviceSize bufferSize = sizeof(Vertex) * ArrayCount(vertices);
+    
+    VkDeviceSize bufferSize = sizeof(vertices[0]) * vertices.size();
     BufferCreateResult staginBufferResult = CreateBuffer(device,
                                                           physicalDevice,
                                                           bufferSize,
@@ -1384,7 +1386,7 @@ CreateAndBindVertexBuffer(VkDevice device,
     void * data;
     // NOTE: memory must have been created with a memory type that reports VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
     vkMapMemory(device, staginBufferResult.m_bufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertices, (uint32)bufferSize);
+    memcpy(data, vertices.data(), (uint32)bufferSize);
     vkUnmapMemory(device, staginBufferResult.m_bufferMemory);
 
     BufferCreateResult vertexBufferResult = CreateBuffer(device,
@@ -1405,18 +1407,19 @@ internal BufferCreateResult
 CreateAndBindIndexBuffer(VkDevice device,
                           VkCommandPool commandPool,
                           VkQueue graphicsQueue,
-                          VkPhysicalDevice physicalDevice)
+                          VkPhysicalDevice physicalDevice,
+                          std::vector<uint32> & indices)
 {
-    VkDeviceSize bufferSize = sizeof(vertexIndices[0]) * ArrayCount(vertexIndices);
+    VkDeviceSize bufferSize = sizeof(indices[0]) * indices.size();
     BufferCreateResult staginBufferResult = CreateBuffer(device,
-                                                          physicalDevice,
-                                                          bufferSize,
-                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
-                                                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+                                                         physicalDevice,
+                                                         bufferSize,
+                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                                                         VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
     
     void * data;
     vkMapMemory(device, staginBufferResult.m_bufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, vertexIndices, (uint32)bufferSize);
+    memcpy(data, indices.data(), (uint32)bufferSize);
     vkUnmapMemory(device, staginBufferResult.m_bufferMemory);
 
     BufferCreateResult indexBufferResult = CreateBuffer(device,
