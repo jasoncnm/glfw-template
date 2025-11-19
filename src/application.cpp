@@ -76,7 +76,7 @@ internal void UpdateUniformBuffer(Application & app)
     local_persist auto startTime = std::chrono::high_resolution_clock::now();
     auto currentTime = std::chrono::high_resolution_clock::now();
     real32 timeElapsed = std::chrono::duration<real32, std::chrono::seconds::period>(currentTime - startTime).count();
-    timeElapsed = 0.0f;
+    // timeElapsed = 0.0f;
     
     UniformBufferObject ubo = {};
     ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
@@ -257,17 +257,18 @@ internal Model LoadModel()
     std::string warn;
     std::string err;
 
-    bool ret = !tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH);
+    bool ret = tinyobj::LoadObj(&attrib, &shapes, &materials, &warn, &err, MODEL_PATH);
     if (!warn.empty())
     {
         SM_WARN("%s", warn.c_str());
     }
     if (!err.empty())
     {
-        SM_ASSERT(false, "failed to load object file, err: %s", err.c_str());
-        // SM_ERROR("%s", err.c_str());
+        SM_ERROR("%s", err.c_str());
     }
 
+    SM_ASSERT(ret, "failed to load object file, err: %s", err.c_str());
+        
     std::unordered_map<Vertex, uint32> uniqueVertices = {};
     Model model = {};
 
@@ -302,7 +303,8 @@ internal Model LoadModel()
                 // Check if `texcoord_index` is zero or positive. negative = no texcoord data
                 if (idx.texcoord_index >= 0) {
                     vertex.m_texCoord.x = attrib.texcoords[2*size_t(idx.texcoord_index)+0];
-                    vertex.m_texCoord.y = 1.0f - attrib.texcoords[2*size_t(idx.texcoord_index)+1];
+                    // vertex.m_texCoord.y = 1.0f - attrib.texcoords[2*size_t(idx.texcoord_index)+1];
+                    vertex.m_texCoord.y = attrib.texcoords[2*size_t(idx.texcoord_index)+1];
                 }
 
                 vertex.m_color = { 1.0f, 1.0f, 1.0f };

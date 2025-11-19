@@ -54,8 +54,11 @@ constexpr char * deviceExtensions[] =
     VK_KHR_SWAPCHAIN_EXTENSION_NAME    
 };
 
-constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
-constexpr char * MODEL_PATH   = "resources/objects/viking_room/viking_room.obj";
+constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse.jpg";
+constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
+
+// constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
+// constexpr char * TEXTURE_PATH = "resources/objects/cyborg/cyborg_diffuse.png";
 
 //====================================================
 //      NOTE: Application Structs
