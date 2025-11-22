@@ -303,8 +303,8 @@ internal Model LoadModel()
                 // Check if `texcoord_index` is zero or positive. negative = no texcoord data
                 if (idx.texcoord_index >= 0) {
                     vertex.m_texCoord.x = attrib.texcoords[2*size_t(idx.texcoord_index)+0];
-                    // vertex.m_texCoord.y = 1.0f - attrib.texcoords[2*size_t(idx.texcoord_index)+1];
-                    vertex.m_texCoord.y = attrib.texcoords[2*size_t(idx.texcoord_index)+1];
+                    vertex.m_texCoord.y = 1.0f - attrib.texcoords[2*size_t(idx.texcoord_index)+1];
+                    //vertex.m_texCoord.y = attrib.texcoords[2*size_t(idx.texcoord_index)+1];
                 }
 
                 vertex.m_color = { 1.0f, 1.0f, 1.0f };

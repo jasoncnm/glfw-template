@@ -54,7 +54,7 @@ constexpr char * deviceExtensions[] =
     VK_KHR_SWAPCHAIN_EXTENSION_NAME    
 };
 
-constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse.jpg";
+constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
 constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
 
 // constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
