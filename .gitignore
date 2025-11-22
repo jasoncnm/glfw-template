@@ -1049,3 +1049,7 @@ dkms.conf
 
 # project specific
 p_glfw
+
+
+#unignore
+!resources/**/*
