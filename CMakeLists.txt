@@ -44,7 +44,7 @@ endif()
 
 if ( MSVC )
     set(CMAKE_EXE_LINKER_FLAGS  "-incremental:no -opt:ref")
-    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS}  -fsanitize=address -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4324 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_SLOW=1 -FC -Z7")
+    set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -MTd -nologo -Gm- -GR- -EHa- -Od -Oi -WX -W4 -wd4324 -wd4996 -wd4456 -wd4505 -wd4201 -wd4100 -wd4189 -DAPP_SLOW=1 -FC -Z7")
 endif()
 
 set_target_properties(${PROJECT_NAME} 

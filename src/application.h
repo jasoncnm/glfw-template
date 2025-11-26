@@ -155,6 +155,8 @@ struct Application
     Array<void *,          MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMapped;
     Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> m_commandBuffers;
 
+    VkFramebuffer * m_currentFrameBuffer;
+
     std::vector<VkImage>       m_swapChainImages;
     std::vector<VkImageView>   m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;

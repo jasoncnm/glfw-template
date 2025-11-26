@@ -156,6 +156,8 @@ void RecordCommandBuffer(Application & app, uint32 imageIndex)
     
     vkCmdEndRenderPass(commandBuffer);
 
+    app.m_currentFrameBuffer = &app.m_swapChainFramebuffers[imageIndex];
+
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to record command buffer!");

@@ -76,6 +76,11 @@ internal void CleanupImgui()
     ImGui::DestroyContext();
 }
 
+internal void CaptureFrameBuffer(Application & app)
+{
+    VkFramebuffer * currentFrameBuffer = app.m_currentFrameBuffer;
+    
+}
 
 internal void ImguiStartFrame(Application & app)
 {
