@@ -43,20 +43,20 @@ internal void InitImGui(Application & app)
     ImGui_ImplGlfw_InitForVulkan(app.m_window, true);
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.ApiVersion = VK_API_VERSION_1_0;              // Pass in your value of VkApplicationInfo::apiVersion, otherwise will default to header version.
-    init_info.Instance = app.m_instance;
-    init_info.PhysicalDevice = app.m_physicalDevice;
-    init_info.Device = app.m_device;
+    init_info.Instance = app.m_renderContext.m_instance;
+    init_info.PhysicalDevice = app.m_renderContext.m_physicalDevice;
+    init_info.Device = app.m_renderContext.m_device;
 
-    QueueFamilyIndices indices = FindQueueFamilies(app.m_physicalDevice, app.m_surface);
+    QueueFamilyIndices indices = FindQueueFamilies(app.m_renderContext.m_physicalDevice, app.m_renderContext.m_surface);
     init_info.QueueFamily = indices.m_graphicsFamily.value();
-    init_info.Queue = app.m_graphicsQueue;
+    init_info.Queue = app.m_renderContext.m_graphicsQueue;
 
     init_info.PipelineCache = VK_NULL_HANDLE;
-    init_info.DescriptorPool = app.m_descriptorPool;
+    init_info.DescriptorPool = app.m_renderContext.m_descriptorPool;
     init_info.MinImageCount = 2;
-    init_info.ImageCount = (uint32)app.m_swapChainImages.size();
+    init_info.ImageCount = (uint32)app.m_renderContext.m_swapChainImages.size();
     init_info.Allocator = VK_NULL_HANDLE;
-    init_info.PipelineInfoMain.RenderPass = app.m_renderPass;
+    init_info.PipelineInfoMain.RenderPass = app.m_renderContext.m_renderPass;
     init_info.PipelineInfoMain.Subpass = 0;
     init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
@@ -69,7 +69,7 @@ internal void InitImGui(Application & app)
     ImGui_ImplVulkan_Init(&init_info);
 }
 
-internal void CleanupImgui()
+internal void CleanUpImgui()
 {
     ImGui_ImplVulkan_Shutdown();
     ImGui_ImplGlfw_Shutdown();
@@ -78,7 +78,7 @@ internal void CleanupImgui()
 
 internal void CaptureFrameBuffer(Application & app)
 {
-    VkFramebuffer * currentFrameBuffer = app.m_currentFrameBuffer;
+    VkFramebuffer * currentFrameBuffer = app.m_renderContext.m_currentFrameBuffer;
     
 }
 
@@ -88,8 +88,7 @@ internal void ImguiStartFrame(Application & app)
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
-
-    // Create a dockspace in main viewport, where central node is transparent.
+// Create a dockspace in main viewport, where central node is transparent.
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
 
     local_persist bool show_demo_window = false, show_another_window = false;
@@ -110,10 +109,13 @@ internal void ImguiStartFrame(Application & app)
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
         ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &show_another_window);
-
         
-        ImGui::SliderFloat("float", &app.m_zoom, .5f, 5.0f);            // Edit 1 float using a slider from 0.0f to 1.0f
-        ImGui::ColorEdit3("clear color", (float*)&app.m_clearColor); // Edit 3 floats representing a color
+        Camera & camera = app.m_renderData.m_camera;
+        ImGui::SliderFloat("camera fov", &camera.m_fov, 10.0f, 180.0f);
+        ImGui::SliderFloat("camera zoom", &camera.m_zoom, .5f, 10.0f);            
+        ImGui::SliderFloat("near plane", &camera.m_nearClip, 0.1f, 10.0f);
+        ImGui::SliderFloat("far plane", &camera.m_farClip, 10.0f, 100.0f);
+        ImGui::ColorEdit3("clear color", (float*)&app.m_renderData.m_clearColor); // Edit 3 floats representing a color
 
         if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
             counter++;
@@ -125,8 +127,6 @@ internal void ImguiStartFrame(Application & app)
 
     }
 
-
-    
     // 3. Show another simple window.
     if (show_another_window)
     {

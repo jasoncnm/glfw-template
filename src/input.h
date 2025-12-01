@@ -7,6 +7,8 @@
    $Notice: $
    ======================================================================== */
 
+// TODO: implement
+
 struct Key
 {
     b8 isDown;
@@ -28,8 +30,6 @@ struct Input
     IVec2 prevMousePosWorld;
     IVec2 mousePosWorld;
     IVec2 relMouseWorld;
-
-    Key keys[
 
 }
 
