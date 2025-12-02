@@ -7,3 +7,9 @@ A desktop application template using GLFW and Vulkan
 - Texture Mapping + load .obj file
 
 ![](captures/cap1.png)
+
+![](captures/cap2.png)
+
+- Depth buffer visulization
+  
+![](captures/cap3.png)
