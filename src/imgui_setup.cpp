@@ -76,12 +76,6 @@ internal void CleanUpImgui()
     ImGui::DestroyContext();
 }
 
-internal void CaptureFrameBuffer(Application & app)
-{
-    VkFramebuffer * currentFrameBuffer = app.m_renderContext.m_currentFrameBuffer;
-    
-}
-
 internal void ImguiStartFrame(Application & app)
 {
     // Start the Dear ImGui frame
@@ -105,7 +99,7 @@ internal void ImguiStartFrame(Application & app)
         static int counter = 0;
 
         ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
-
+        
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
         ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &show_another_window);
@@ -123,6 +117,34 @@ internal void ImguiStartFrame(Application & app)
         ImGui::Text("counter = %d", counter);
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        
+        Input & input = app.m_input;
+        
+        if (KeyIsDown(input, GLFW_KEY_W)) 
+        {
+            ImGui::Text("Key W is down."); 
+        }
+        
+        if (KeyIsDown(input, GLFW_KEY_A)) 
+        {
+            ImGui::Text("Key A is down."); 
+        }
+        
+        if (KeyIsDown(input, GLFW_KEY_S)) 
+        {
+            ImGui::Text("Key S is down."); 
+        }
+        
+        if (KeyIsDown(input, GLFW_KEY_D)) 
+        {
+            ImGui::Text("Key D is down."); 
+        }
+        
+        if (KeyIsDown(input, GLFW_KEY_Q))
+        {
+            app.m_running = false;
+        }
+        
         ImGui::End();
 
     }

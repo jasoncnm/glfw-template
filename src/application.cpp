@@ -24,6 +24,8 @@ TODO: Things that I can do
   - Impliment custom arena allocator for vulkan object allocations
   - Continue mipmaping tutorial
   - Draw shader arts
+- Support passing multiple textures to fragment shader
+- Shader Hot reloading 
 */
 
 //====================================================
@@ -151,55 +153,28 @@ internal void FramebufferResizeCallback(GLFWwindow  * window, int32 width, int32
     app->m_framebufferResized = true;
 }
 
-internal void InputKeyCallback(GLFWwindow * _window, int32 key, int32 scancode, int32 action, int32 mods)
+internal void InputKeyCallback(GLFWwindow * _window, int32 keycode, int32 scancode, int32 action, int32 mods)
 {
-    // Application * app = (Application *)glfwGetWindowUserPointer(_window);
+    Application * app = (Application *)glfwGetWindowUserPointer(_window);
+    Key * key = &app->m_input.keys[keycode];
     
-    switch(action)
+        switch(action)
     {
         case GLFW_PRESS:
         {
-            const char * keyname = glfwGetKeyName(key, scancode);
-            if (keyname)
-            {
-                SM_TRACE("presed key: %s", keyname);
-            }
-            else
-            {
-                SM_TRACE("presed keycode: %d", key);
-            }
-            
+            key->isDown = true;
+            key->halfTransitionCount++;
             break;
         }
         case GLFW_RELEASE:
         {
-            
-            const char * keyname = glfwGetKeyName(key, scancode);
-            if (keyname)
-            {
-                SM_TRACE("released key: %s", keyname);
-            }
-            else
-            {
-                SM_TRACE("released keycode: %d", key);
-            }
-            
+            key->isDown = false;
+            key->halfTransitionCount++;
             break;
         }
         case GLFW_REPEAT:
         {
-            
-            const char * keyname = glfwGetKeyName(key, scancode);
-            if (keyname)
-            {
-                SM_TRACE("repeated key: %s", keyname);
-            }
-            else
-            {
-                SM_TRACE("repeated keycode: %d", key);
-            }
-            
-            break;
+            // NOTE: TYPE
         }
         default: {}
     }
@@ -250,6 +225,18 @@ internal void InputSetJoystickCallback(int jid, int event)
     }
 }
 
+internal void InitInput(Application & app)
+{
+    app.m_input = {};
+    
+    app.m_input.screenSize = { WIDTH, HEIGHT };
+    
+    for (uint32 i = 0; i <= GLFW_KEY_LAST; i++) 
+    {
+        app.m_input.keys[i] = {};
+    }
+}
+
 internal void InitWindow(Application & app)
 {
     SM_ASSERT(glfwInit(), "Could not initilize GLFW!");
@@ -283,7 +270,8 @@ glfwSetMouseButtonCallback(app.m_window, InputMouseButtonCallback);
 glfwSetScrollCallback(app.m_window, InputScrollCallback);
 glfwSetCursorPosCallback(app.m_window, InputMouseCursorCallback);
 glfwSetJoystickCallback(InputSetJoystickCallback);
-
+    
+    app.m_running = true;
 }
 
 internal void CleanUp(Application & app)
@@ -296,7 +284,7 @@ internal void CleanUp(Application & app)
 
 internal void MainLoop(Application & app)
 {
-    for ( ;!glfwWindowShouldClose(app.m_window); )
+    for ( ;app.m_running; )
     {
         glfwPollEvents();
         //PrintAvailableJoyStics();
@@ -304,6 +292,9 @@ internal void MainLoop(Application & app)
 
         // Rendering
         DrawFrame(app, &app.m_renderData);
+        
+        app.m_running = app.m_running && !glfwWindowShouldClose(app.m_window);
+        
     }
     vkDeviceWaitIdle(app.m_renderContext.m_device);
     }
@@ -312,6 +303,7 @@ void RunApplication(Application & app)
 {
     // NOTE: Run Application
     InitWindow(app);
+    InitInput(app);
     InitRenderData(app);
     InitVulkan(app);
     InitImGui(app);

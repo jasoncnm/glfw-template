@@ -7,14 +7,16 @@
    $Notice: $
    ======================================================================== */
 
+#include <GLFW/glfw3.h>
+
 // TODO: implement
 
 struct Key
 {
-    b8 isDown;
-    b8 isJustPressed;
-    b8 isJustReleased;
-    uint8 halfTransitionCount;
+    b8 isDown = false;
+    b8 isJustPressed = false;
+    b8 isJustReleased = false;
+    uint8 halfTransitionCount = 0;
 };
 
 struct Input
@@ -26,11 +28,16 @@ struct Input
     IVec2 mousePos;
     IVec2 relMouse;
 
-    // NOTE: World
-    IVec2 prevMousePosWorld;
-    IVec2 mousePosWorld;
-    IVec2 relMouseWorld;
+    Key keys[GLFW_KEY_LAST + 1];
+};
 
+//  ========================================================================
+//              NOTE: Input Functions
+//  ========================================================================
+
+bool KeyIsDown(Input & input, uint32 code)
+{
+    return input.keys[code].isDown;
 }
 
 #define INPUT_H

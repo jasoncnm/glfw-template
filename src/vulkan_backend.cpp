@@ -1287,12 +1287,10 @@ CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPo
     
     CopyBufferToImage(device, commandPool, graphicsQueue, stagingBufferResult.m_buffer, textureImageResult.m_image, (uint32)x, (uint32)y);
     
-    
     TransitionImageLayout(device, commandPool, graphicsQueue, textureImageResult.m_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     
     vkDestroyBuffer(device, stagingBufferResult.m_buffer, nullptr);
     vkFreeMemory(device, stagingBufferResult.m_bufferMemory, nullptr);
-    
     
     return textureImageResult;
     
@@ -1818,8 +1816,6 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     
     vkCmdEndRenderPass(commandBuffer);
     
-    context.m_currentFrameBuffer = &context.m_swapChainFramebuffers[imageIndex];
-    
     if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to record command buffer!");
@@ -1837,7 +1833,9 @@ internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderDa
     UniformBufferObject ubo = {};
     // TODO: - Basic perspective camera control
     //         Controll view and projection matrix based on camera position forwardDirection, fov, zoom, and near/far clip
-    ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(135.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    // ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(135.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    ubo.m_model = glm::mat4(1.0f);
+    
     ubo.m_view       = glm::lookAt(glm::vec3(2.0f, 2.0f, renderData->m_camera.m_zoom),
                                    glm::vec3(0.0f, 0.0f, 0.0f), 
                                    glm::vec3(0.0f, 0.0f, 1.0f));
@@ -1894,10 +1892,9 @@ internal void InitVulkan(Application & app)
                                                       TEXTURE_PATH);
         context.m_textureImage       = result.m_image;
         context.m_textureImageMemory = result.m_imageMemory;
+    context.m_textureImageView   = CreateTextureImageView(context.m_device, context.m_textureImage);
+    context.m_textureSampler     = CreateTextureSampler(context.m_device, context.m_physicalDevice);
     }
-    
-    context.m_textureImageView = CreateTextureImageView(context.m_device, context.m_textureImage);
-    context.m_textureSampler   = CreateTextureSampler(context.m_device, context.m_physicalDevice);
     
     {
         DepthResourcesCreateResult result = CreateDepthResources(context.m_device, context.m_physicalDevice, context.m_swapChainExtent);

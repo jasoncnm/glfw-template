@@ -7,12 +7,15 @@
    $Notice: $
    ======================================================================== */
 
+
 #include "vulkan_backend.h"
 #include "engine_lib.h"
 #include "render_interface.h"
+#include "input.h"
 
 #include <chrono>
 #include <unordered_map>
+#include <GLFW/glfw3.h>
 
 //====================================================
 //      NOTE: Application Constexpr
@@ -31,6 +34,7 @@ int32 m_joystick = -1;
    
     bool   m_framebufferResized = false;
     bool   m_vSync = false;
+    bool   m_running = false;
 
     real32 m_zoom = 2.0f;
     real32 m_fov  = 45.0f;
@@ -38,7 +42,7 @@ int32 m_joystick = -1;
     GLFWwindow  * m_window;
     RenderData    m_renderData;
     VulkanContext m_renderContext;
-
+    Input         m_input;
 };
 
 //====================================================

@@ -7,8 +7,11 @@
 
 // constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
 // constexpr char * TEXTURE_PATH = "resources/objects/cyborg/cyborg_diffuse.png";
-constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
-constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
+// constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
+// constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
+
+constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
+constexpr char * MODEL_PATH   = "resources/objects/viking_room/viking_room.obj";
 
 struct Vertex
 {
