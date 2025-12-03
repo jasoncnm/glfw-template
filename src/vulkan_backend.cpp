@@ -744,9 +744,15 @@ CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     pipelineLayoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipelineLayoutInfo.setLayoutCount = 1;            
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
-    pipelineLayoutInfo.pushConstantRangeCount = 0;    // Optional
-    pipelineLayoutInfo.pPushConstantRanges = nullptr; // Optional
     
+    VkPushConstantRange pushConstants = {};
+    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(MeshPushConstants);
+    
+    pipelineLayoutInfo.pushConstantRangeCount = 1;    
+    pipelineLayoutInfo.pPushConstantRanges = &pushConstants;
+     
     VkPipelineLayout layout;
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout) != VK_SUCCESS)
     {
@@ -1750,6 +1756,30 @@ internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
     context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, context.m_swapChainImageViews, context.m_depthImageView, context.m_renderPass, context.m_swapChainExtent);
 }
 
+internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderData)
+{
+    
+    UniformBufferObject ubo = {};
+    // TODO: - Basic perspective camera control
+    //         Controll view and projection matrix based on camera position forwardDirection, fov, zoom, and near/far clip
+    // ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(135.0f), glm::vec3(0.0f, 0.0f, 1.0f));
+    // ubo.m_model = glm::translate(glm::mat4(1.0f), modelPos);
+    
+    Camera & cam = renderData->m_camera;
+    ubo.m_view = glm::lookAt(cam.m_pos,
+                             cam.m_pos + cam.m_forwardDirection, 
+                             glm::vec3(0.0f, 0.0f, 1.0f));
+    
+    real32 aspect = (real32)context.m_swapChainExtent.width / (real32)context.m_swapChainExtent.height;
+    ubo.m_projection = glm::perspective(glm::radians(renderData->m_camera.m_fovy),
+                                        aspect, 
+                                        renderData->m_camera.m_nearClip,
+                                        renderData->m_camera.m_farClip);
+    ubo.m_projection[1][1] *= -1;
+    
+    memcpy(context.m_uniformBuffersMapped[context.m_currentFrame], &ubo, sizeof(ubo));
+}
+
 internal
 void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint32 imageIndex)
 {
@@ -1800,8 +1830,20 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     
-    vkCmdBindIndexBuffer(commandBuffer, context.m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    glm::vec3 meshPositions[] = {
+        glm::vec3( 0.0f,  0.0f,  0.0f), 
+        glm::vec3( 2.0f,  5.0f, -15.0f), 
+        glm::vec3(-1.5f, -2.2f, -2.5f),  
+        glm::vec3(-3.8f, -2.0f, -12.3f),  
+        glm::vec3( 2.4f, -0.4f, -3.5f),  
+        glm::vec3(-1.7f,  3.0f, -7.5f),  
+        glm::vec3( 1.3f, -2.0f, -2.5f),  
+        glm::vec3( 1.5f,  2.0f, -2.5f), 
+        glm::vec3( 1.5f,  0.2f, -1.5f), 
+        glm::vec3(-1.3f,  1.0f, -1.5f)  
+    };
     
+    vkCmdBindIndexBuffer(commandBuffer, context.m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(commandBuffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                             context.m_pipelineLayout,
@@ -1811,7 +1853,18 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
                             0,
                             nullptr);
     
-    vkCmdDrawIndexed(commandBuffer, (uint32)renderData->m_model.m_indices.size(), 1, 0, 0, 0);
+    for (int i = 0; i < ArrayCount(meshPositions); i++)
+    {
+        MeshPushConstants meshConstants = {};
+        meshConstants.m_model = glm::translate(glm::mat4(1.0), meshPositions[i]);
+        vkCmdPushConstants(commandBuffer,
+                           context.m_pipelineLayout, 
+                           VK_SHADER_STAGE_VERTEX_BIT, 
+                           0, sizeof(meshConstants), 
+                           &meshConstants);
+        vkCmdDrawIndexed(commandBuffer, (uint32)renderData->m_model.m_indices.size(), 1, 0, 0, 0);
+    }
+    
     
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
@@ -1824,34 +1877,6 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     }
 }
 
-
-internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderData)
-{
-    local_persist auto startTime = std::chrono::high_resolution_clock::now();
-    auto currentTime = std::chrono::high_resolution_clock::now();
-    real32 timeElapsed = std::chrono::duration<real32, std::chrono::seconds::period>(currentTime - startTime).count();
-    // timeElapsed = 1.0f;
-    
-    UniformBufferObject ubo = {};
-    // TODO: - Basic perspective camera control
-    //         Controll view and projection matrix based on camera position forwardDirection, fov, zoom, and near/far clip
-    // ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(135.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.m_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 5.0f, 0.0f));
-    
-    Camera & cam = renderData->m_camera;
-    ubo.m_view = glm::lookAt(cam.m_pos,
-                             cam.m_pos + cam.m_forwardDirection, 
-                             glm::vec3(0.0f, 0.0f, 1.0f));
-    
-    real32 aspect = (real32)context.m_swapChainExtent.width / (real32)context.m_swapChainExtent.height;
-    ubo.m_projection = glm::perspective(glm::radians(renderData->m_camera.m_fovy),
-                                        aspect, 
-                                        renderData->m_camera.m_nearClip,
-                                        renderData->m_camera.m_farClip);
-    ubo.m_projection[1][1] *= -1;
-    
-    memcpy(context.m_uniformBuffersMapped[context.m_currentFrame], &ubo, sizeof(ubo));
-    }
 
 Model LoadModel();
 internal void InitVulkan(Application & app)
@@ -2004,13 +2029,38 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     vkResetFences(context.m_device, 1, &context.m_inFlightFences[context.m_currentFrame]);
     
     vkResetCommandBuffer(context.m_commandBuffers[context.m_currentFrame], 0);
-    RecordCommandBuffer(context, renderData, imageIndex);
     
+    #if 0
+    glm::vec3 modelPoses[] = {
+        glm::vec3( 0.0f,  0.0f,  0.0f), 
+        glm::vec3( 2.0f,  5.0f, -15.0f), 
+        glm::vec3(-1.5f, -2.2f, -2.5f),  
+        glm::vec3(-3.8f, -2.0f, -12.3f),  
+        glm::vec3( 2.4f, -0.4f, -3.5f),  
+        glm::vec3(-1.7f,  3.0f, -7.5f),  
+        glm::vec3( 1.3f, -2.0f, -2.5f),  
+        glm::vec3( 1.5f,  2.0f, -2.5f), 
+        glm::vec3( 1.5f,  0.2f, -1.5f), 
+        glm::vec3(-1.3f,  1.0f, -1.5f) ,
+    };
+    
+    static int32 index = 0;
+    index = (index + 1) % ArrayCount(modelPoses);
+    #endif
+    
+    RecordCommandBuffer(context, renderData, imageIndex);
     UpdateUniformBuffer(context, renderData);
+    
+    // Update and Render additional Platform Windows
+    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+    }
+    
     
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    
     VkSemaphore waitSemaphores[] = { context.m_imageAvailableSemaphores[context.m_currentFrame] };
     VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
     submitInfo.waitSemaphoreCount = ArrayCount(waitSemaphores);
@@ -2028,13 +2078,6 @@ internal void DrawFrame(Application & app, RenderData * renderData)
         SM_ASSERT(false, "failed to submit draw command buffer!");
     }
     
-    
-    // Update and Render additional Platform Windows
-    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-    {
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
-    }
     
     
     VkPresentInfoKHR presentInfo = {};

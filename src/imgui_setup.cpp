@@ -115,6 +115,11 @@ if (show_demo_window)
         ImGui::Text("counter = %d", counter);
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+        ImGui::Text("Camera Forward direction (%.2f, %.2f, %.2f)", 
+                    camera.m_forwardDirection.x,
+                    camera.m_forwardDirection.y,
+                    camera.m_forwardDirection.z);
+                    
         
         Input & input = app.m_input;
         

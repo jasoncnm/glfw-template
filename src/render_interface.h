@@ -5,13 +5,13 @@
 #include "engine_lib.h"
 #include <glm/glm.hpp>
 
-// constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
-// constexpr char * TEXTURE_PATH = "resources/objects/cyborg/cyborg_diffuse.png";
-// constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
-// constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
+ // constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
+ // constexpr char * TEXTURE_PATH = "resources/objects/cyborg/cyborg_diffuse.png";
+ constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
+ constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
 
-constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
-constexpr char * MODEL_PATH   = "resources/objects/viking_room/viking_room.obj";
+// constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
+// constexpr char * MODEL_PATH   = "resources/objects/viking_room/viking_room.obj";
 
 struct Vertex
 {
@@ -46,7 +46,6 @@ struct RenderData
 {
     glm::vec4 m_clearColor;
     Camera m_camera;
-    
     // TODO: Need to make a transform struct to contains a model
     Model m_model;
     

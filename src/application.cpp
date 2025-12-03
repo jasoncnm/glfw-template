@@ -284,7 +284,7 @@ internal void Update(Application & app, float dt)
         app.m_running = false;
     }
     
-    real32 cameraMoveSpeed = 1.0f;
+    real32 cameraMoveSpeed = 5.0f;
     real32 cameraRotSpeed = 1.0f;
     Camera & camera = app.m_renderData.m_camera;
     
@@ -316,14 +316,17 @@ internal void Update(Application & app, float dt)
         yawDelta = cameraRotSpeed * dt;
     }
     
+    // TODO what happend if camera forward direction at up / -up
     glm::quat quaternion =
         glm::normalize(glm::cross(glm::angleAxis(pitchDelta, right),
-                                  glm::angleAxis(-yawDelta, glm::vec3(0, 0, 1.0f))));
-    
+                                             glm::angleAxis(-yawDelta, up)));
     camera.m_forwardDirection = glm::rotate(quaternion, camera.m_forwardDirection);
-    
-    
+
     glm::vec3 moveDir(0);
+    
+    forward = camera.m_forwardDirection;
+    right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
+    up      = glm::cross(right, forward);
     
     if (KeyIsDown(input, GLFW_KEY_W)) 
     {
@@ -379,9 +382,7 @@ internal void MainLoop(Application & app)
         real32 dt = (real32)(time - currentTime);
         currentTime = time;
         
-        
         glfwPollEvents();
-        //PrintAvailableJoyStics();
         ImguiStartFrame(app);
         
         Update(app, dt);
