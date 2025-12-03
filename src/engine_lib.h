@@ -305,7 +305,7 @@ internal char * BumpAlloc(BumpAllocator * ba, size_t size)
 //  ========================================================================
 // NOTE: File I/O
 //  ========================================================================
-internal long long GetTimestamp(char * file)
+internal int64 GetTimestamp(char * file)
 {
     struct stat fileStat = {};
     stat(file, &fileStat);
@@ -400,6 +400,10 @@ internal std::vector<char> read_file(char * filePath)
         file.resize(fileSize + 1);
         int _fileSize;
         read_file(filePath, &_fileSize, file.data());
+    }
+    else 
+    {
+        SM_TRACE("empty file %s", filePath);
     }
 
     return file;
@@ -548,6 +552,18 @@ struct IVec2
         
     }
 };
+
+
+float max(float a, float b)
+{
+    return a > b ? a : b;
+}
+
+ int64 max(int64 a, int64 b)
+{
+    return a > b ? a : b;
+}
+
 
 internal float Distance(IVec2 a, IVec2 b)
 {

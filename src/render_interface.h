@@ -33,13 +33,12 @@ struct Model
 
 struct Camera
 {
-    glm::vec3 m_pos;
-    glm::vec3 m_ForwardDirection;
+    glm::vec3 m_pos = {};
+    glm::vec3 m_forwardDirection = { 0.0f, 1.0f, 0.0f };
     
-    float m_fov = 45.0f;
+    float m_fovy = 45.0f;
     float m_nearClip = 0.1f;
     float m_farClip = 100.0f;
-    float m_zoom = 5.0f;
     
 };
 
@@ -50,6 +49,8 @@ struct RenderData
     
     // TODO: Need to make a transform struct to contains a model
     Model m_model;
+    
+    
 };
 
 #define RENDER_INTERFACE_H

@@ -33,6 +33,9 @@ constexpr char * deviceExtensions[] =
 
 constexpr int32 MAX_FRAMES_IN_FLIGHT = 2;
 
+constexpr char * VS_PATH = "src/Shaders/bytecode/triangle_vert.spv";
+constexpr char * FS_PATH = "src/Shaders/bytecode/triangle_frag.spv";
+
 /*
 NOTE: APP_SLOW
    1 - No optimization build (DEBUG build)
@@ -88,7 +91,7 @@ struct VulkanContext
     VkRenderPass               m_renderPass;
     VkDescriptorSetLayout      m_descriptorSetLayout;
     VkPipelineLayout           m_pipelineLayout;
-    VkPipeline                 m_graphicsPipline;
+    VkPipeline                 m_graphicsPipeline;
     VkCommandPool              m_commandPool;
     VkDescriptorPool           m_descriptorPool;
     
@@ -121,8 +124,9 @@ struct VulkanContext
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
     Array<VkFence, MAX_FRAMES_IN_FLIGHT>     m_inFlightFences;
     
-    // TODO: temp
-    
+     int64 m_shaderTimestamp;
+    int64 m_textureTimestamp;
+    int64 m_modelTimestamp;
     
 };
 
@@ -161,7 +165,7 @@ struct CreateSwapChainResult
 struct CreateGraphicsPipelineResult
 {
     VkPipelineLayout m_pipelineLayout;
-    VkPipeline m_graphicsPipline;
+    VkPipeline m_graphicsPipeline;
 };
 
 struct SyncObjects

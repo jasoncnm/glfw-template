@@ -84,12 +84,11 @@ internal void ImguiStartFrame(Application & app)
     ImGui::NewFrame();
 // Create a dockspace in main viewport, where central node is transparent.
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
-
+    
+    #if 0
     local_persist bool show_demo_window = false, show_another_window = false;
-
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-
-    if (show_demo_window)
+ImGuiIO& io = ImGui::GetIO(); (void)io;
+if (show_demo_window)
     {
         ImGui::ShowDemoWindow(&show_demo_window);
     }
@@ -105,8 +104,7 @@ internal void ImguiStartFrame(Application & app)
         ImGui::Checkbox("Another Window", &show_another_window);
         
         Camera & camera = app.m_renderData.m_camera;
-        ImGui::SliderFloat("camera fov", &camera.m_fov, 10.0f, 180.0f);
-        ImGui::SliderFloat("camera zoom", &camera.m_zoom, .5f, 10.0f);            
+        ImGui::SliderFloat("camera fov", &camera.m_fovy, 10.0f, 180.0f);
         ImGui::SliderFloat("near plane", &camera.m_nearClip, 0.1f, 10.0f);
         ImGui::SliderFloat("far plane", &camera.m_farClip, 10.0f, 100.0f);
         ImGui::ColorEdit3("clear color", (float*)&app.m_renderData.m_clearColor); // Edit 3 floats representing a color
@@ -140,11 +138,6 @@ internal void ImguiStartFrame(Application & app)
             ImGui::Text("Key D is down."); 
         }
         
-        if (KeyIsDown(input, GLFW_KEY_Q))
-        {
-            app.m_running = false;
-        }
-        
         ImGui::End();
 
     }
@@ -158,5 +151,5 @@ internal void ImguiStartFrame(Application & app)
             show_another_window = false;
         ImGui::End();
     }
-
+    #endif
 }

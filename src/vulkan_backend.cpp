@@ -576,6 +576,8 @@ internal VkImageView CreateTextureImageView(VkDevice device, VkImage image)
 // IMPORTANT: Make sure the byte code is null terminated
 internal VkShaderModule CreateShaderModule(VkDevice device, std::vector<char> & code)
 {
+    SM_ASSERT(code.size() > 0, "file readed are empty");
+    
     VkShaderModuleCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     createInfo.codeSize = code.size() - 1;
@@ -594,7 +596,7 @@ internal VkShaderModule CreateShaderModule(VkDevice device, std::vector<char> & 
 
 /*
   ============================IMPORTANT=============================
-                        Graphics Pipline
+                        Graphics Pipeline
   ==================================================================
   https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Introduction   
   ==================================================================
@@ -607,8 +609,8 @@ internal CreateGraphicsPipelineResult
 CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass, VkDescriptorSetLayout descriptorSetLayout)
 {
     // NOTE: This is null terminated
-    std::vector<char> vertShaderCode = read_file("src/Shaders/bytecode/triangle_vert.spv");
-    std::vector<char> fragShaderCode = read_file("src/Shaders/bytecode/triangle_frag.spv");
+    std::vector<char> vertShaderCode = read_file(VS_PATH);
+    std::vector<char> fragShaderCode = read_file(FS_PATH);
     
     VkShaderModule vertShaderModule = CreateShaderModule(device, vertShaderCode);
     VkShaderModule fragShaderModule = CreateShaderModule(device, fragShaderCode);    
@@ -1778,7 +1780,7 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     renderPassInfo.pClearValues = clearValues;
     
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.m_graphicsPipline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.m_graphicsPipeline);
     
     VkViewport viewport = {};
     viewport.x = 0;
@@ -1834,19 +1836,22 @@ internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderDa
     // TODO: - Basic perspective camera control
     //         Controll view and projection matrix based on camera position forwardDirection, fov, zoom, and near/far clip
     // ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(135.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.m_model = glm::mat4(1.0f);
+    ubo.m_model = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 5.0f, 0.0f));
     
-    ubo.m_view       = glm::lookAt(glm::vec3(2.0f, 2.0f, renderData->m_camera.m_zoom),
-                                   glm::vec3(0.0f, 0.0f, 0.0f), 
-                                   glm::vec3(0.0f, 0.0f, 1.0f));
-    ubo.m_projection = glm::perspective(glm::radians(renderData->m_camera.m_fov),
-                                        context.m_swapChainExtent.width / (real32) context.m_swapChainExtent.height, renderData->m_camera.m_nearClip,
+    Camera & cam = renderData->m_camera;
+    ubo.m_view = glm::lookAt(cam.m_pos,
+                             cam.m_pos + cam.m_forwardDirection, 
+                             glm::vec3(0.0f, 0.0f, 1.0f));
+    
+    real32 aspect = (real32)context.m_swapChainExtent.width / (real32)context.m_swapChainExtent.height;
+    ubo.m_projection = glm::perspective(glm::radians(renderData->m_camera.m_fovy),
+                                        aspect, 
+                                        renderData->m_camera.m_nearClip,
                                         renderData->m_camera.m_farClip);
     ubo.m_projection[1][1] *= -1;
     
     memcpy(context.m_uniformBuffersMapped[context.m_currentFrame], &ubo, sizeof(ubo));
-    
-}
+    }
 
 Model LoadModel();
 internal void InitVulkan(Application & app)
@@ -1879,7 +1884,7 @@ internal void InitVulkan(Application & app)
             CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout);
         
         context.m_pipelineLayout  = result.m_pipelineLayout;
-        context.m_graphicsPipline = result.m_graphicsPipline;
+        context.m_graphicsPipeline = result.m_graphicsPipeline;
     }
     
     context.m_commandPool = CreateCommandPool(context.m_device, context.m_physicalDevice, context.m_surface);
@@ -1942,14 +1947,41 @@ internal void InitVulkan(Application & app)
         context.m_inFlightFences           = syncObjs.m_inFlightFences;
     }
     
+    int64 timestampVS = GetTimestamp(VS_PATH);
+    int64 timestampFS = GetTimestamp(FS_PATH);
+    context.m_shaderTimestamp = max(timestampVS, timestampFS);
+}
+
+internal void RecreateGrahpicsPipeline(VulkanContext & context)
+{
+    vkDeviceWaitIdle(context.m_device);
+    
+    vkDestroyPipeline(context.m_device, context.m_graphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(context.m_device, context.m_pipelineLayout, nullptr);
+    
+    CreateGraphicsPipelineResult result =
+        CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout);
+    
+    context.m_pipelineLayout  = result.m_pipelineLayout;
+    context.m_graphicsPipeline = result.m_graphicsPipeline;
+    
 }
 
 internal void DrawFrame(Application & app, RenderData * renderData)
 {
     VulkanContext & context = app.m_renderContext;
-    
-    
     vkWaitForFences(context.m_device, 1, &context.m_inFlightFences[context.m_currentFrame], VK_TRUE, UINT64_MAX);
+    
+    {
+    int64 timestampVS = GetTimestamp(VS_PATH);
+    int64 timestampFS = GetTimestamp(FS_PATH);
+    int64 currentTimeStamp = max(timestampVS, timestampFS);
+        if (KeyIsDown(app.m_input, GLFW_KEY_R) && currentTimeStamp > app.m_renderContext.m_shaderTimestamp)
+    {
+        RecreateGrahpicsPipeline(app.m_renderContext);
+        app.m_renderContext.m_shaderTimestamp = currentTimeStamp;
+        }
+    }
     
     uint32 imageIndex;
     VkResult result = vkAcquireNextImageKHR(context.m_device,
@@ -2030,8 +2062,10 @@ internal void DrawFrame(Application & app, RenderData * renderData)
         SM_ASSERT(false, "failed to present swap chain image!");
     }
     
+    
     context.m_currentFrame = (context.m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
+
 internal void CleanUpVulkan(VulkanContext & context)
 {
     CleanupSwapChain(context);
@@ -2059,7 +2093,7 @@ internal void CleanUpVulkan(VulkanContext & context)
         vkDestroyFence(context.m_device, context.m_inFlightFences[i], nullptr);
     }
     vkDestroyCommandPool(context.m_device, context.m_commandPool, nullptr);
-    vkDestroyPipeline(context.m_device, context.m_graphicsPipline, nullptr);
+    vkDestroyPipeline(context.m_device, context.m_graphicsPipeline, nullptr);
     vkDestroyPipelineLayout(context.m_device, context.m_pipelineLayout, nullptr);
     vkDestroyRenderPass(context.m_device, context.m_renderPass, nullptr);
     vkDestroyDevice(context.m_device, nullptr);

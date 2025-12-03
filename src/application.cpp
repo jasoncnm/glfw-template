@@ -17,16 +17,16 @@
 #include "backends/imgui_impl_glfw.h"
 #include "backends/imgui_impl_vulkan.h"
 
+#include <glm/gtx/quaternion.hpp>
+
 /*
 TODO: Things that I can do
-  - Basic perspective camera control
-  - Impliment custom hash map without using std::hash and std::unordered_map
-  - Impliment custom arena allocator for vulkan object allocations
   - Continue mipmaping tutorial
   - Draw shader arts
 - Support passing multiple textures to fragment shader
-- Shader Hot reloading 
-*/
+- Impliment custom hash map without using std::hash and std::unordered_map
+  - Impliment custom arena allocator for vulkan object allocations
+  */
 
 //====================================================
 //      NOTE: Application Functions
@@ -272,6 +272,94 @@ glfwSetCursorPosCallback(app.m_window, InputMouseCursorCallback);
 glfwSetJoystickCallback(InputSetJoystickCallback);
     
     app.m_running = true;
+    glfwSetTime(0.0);
+}
+
+internal void Update(Application & app, float dt)
+{
+    Input & input = app.m_input;
+    
+    if (KeyIsDown(input, GLFW_KEY_Q))
+    {
+        app.m_running = false;
+    }
+    
+    real32 cameraMoveSpeed = 1.0f;
+    real32 cameraRotSpeed = 1.0f;
+    Camera & camera = app.m_renderData.m_camera;
+    
+    glm::vec3 forward = camera.m_forwardDirection;
+    glm::vec3 right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
+    glm::vec3 up      = glm::cross(right, forward);
+    
+    glm::vec3 panDir(0);
+    real32 pitchDelta = 0.0f;
+    real32 yawDelta = 0.0f;
+    
+    if (KeyIsDown(input, GLFW_KEY_UP))
+    {
+        pitchDelta = cameraRotSpeed * dt; 
+    }
+    
+    if (KeyIsDown(input, GLFW_KEY_DOWN))
+    {
+        pitchDelta = -cameraRotSpeed * dt;
+    }
+    
+    if (KeyIsDown(input, GLFW_KEY_LEFT))
+    {
+        yawDelta = -cameraRotSpeed * dt;
+    }
+    
+    if (KeyIsDown(input, GLFW_KEY_RIGHT))
+    {
+        yawDelta = cameraRotSpeed * dt;
+    }
+    
+    glm::quat quaternion =
+        glm::normalize(glm::cross(glm::angleAxis(pitchDelta, right),
+                                  glm::angleAxis(-yawDelta, glm::vec3(0, 0, 1.0f))));
+    
+    camera.m_forwardDirection = glm::rotate(quaternion, camera.m_forwardDirection);
+    
+    
+    glm::vec3 moveDir(0);
+    
+    if (KeyIsDown(input, GLFW_KEY_W)) 
+    {
+        moveDir += forward;
+    }
+    
+    if (KeyIsDown(input, GLFW_KEY_S)) 
+    {
+        moveDir += -forward; 
+    }
+    
+    if (KeyIsDown(input, GLFW_KEY_A)) 
+    {
+        moveDir += -right; 
+        }
+    
+    if (KeyIsDown(input, GLFW_KEY_D)) 
+    {
+        moveDir += right; 
+    }
+    
+    if (KeyIsDown(input, GLFW_KEY_LEFT_SHIFT) || KeyIsDown(input, GLFW_KEY_SPACE))
+    {
+        moveDir += up;
+    }
+    
+    if (KeyIsDown(input, GLFW_KEY_LEFT_CONTROL))
+    {
+        moveDir += -up;
+    }
+    
+    if (moveDir != glm::vec3(0))
+    {
+        camera.m_pos += glm::normalize(moveDir) * cameraMoveSpeed * dt;
+    }
+    
 }
 
 internal void CleanUp(Application & app)
@@ -284,15 +372,22 @@ internal void CleanUp(Application & app)
 
 internal void MainLoop(Application & app)
 {
+    real64 currentTime = glfwGetTime();
     for ( ;app.m_running; )
     {
+        real64 time = glfwGetTime();
+        real32 dt = (real32)(time - currentTime);
+        currentTime = time;
+        
+        
         glfwPollEvents();
         //PrintAvailableJoyStics();
         ImguiStartFrame(app);
+        
+        Update(app, dt);
 
         // Rendering
         DrawFrame(app, &app.m_renderData);
-        
         app.m_running = app.m_running && !glfwWindowShouldClose(app.m_window);
         
     }
