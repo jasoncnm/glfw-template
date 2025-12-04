@@ -1,5 +1,5 @@
-#include "vulkan_backend.h"
 #include "render_interface.h"
+#include "vulkan_backend.h"
 
 internal VkVertexInputBindingDescription GetVertexBindingDescription()
 {
@@ -380,7 +380,7 @@ internal VkDevice CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurface
     }
     
     float queuePriority = 1.0f;
-    for (int32 i = 0; i < uniqueQueueFamilies.count; i++)
+    for (uint32 i = 0; i < uniqueQueueFamilies.count; i++)
     {
         VkDeviceQueueCreateInfo queueCreateInfo = {};
         
@@ -1758,12 +1758,9 @@ internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
 
 internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderData)
 {
-    
     UniformBufferObject ubo = {};
-    // TODO: - Basic perspective camera control
-    //         Controll view and projection matrix based on camera position forwardDirection, fov, zoom, and near/far clip
-    // ubo.m_model      = glm::rotate(glm::mat4(1.0f), timeElapsed * glm::radians(135.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    // ubo.m_model = glm::translate(glm::mat4(1.0f), modelPos);
+    // Control view and projection matrix based on camera position forwardDirection, 
+    // fov, zoom, and near/far clip
     
     Camera & cam = renderData->m_camera;
     ubo.m_view = glm::lookAt(cam.m_pos,
@@ -1830,19 +1827,6 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     
-    glm::vec3 meshPositions[] = {
-        glm::vec3( 0.0f,  0.0f,  0.0f), 
-        glm::vec3( 2.0f,  5.0f, -15.0f), 
-        glm::vec3(-1.5f, -2.2f, -2.5f),  
-        glm::vec3(-3.8f, -2.0f, -12.3f),  
-        glm::vec3( 2.4f, -0.4f, -3.5f),  
-        glm::vec3(-1.7f,  3.0f, -7.5f),  
-        glm::vec3( 1.3f, -2.0f, -2.5f),  
-        glm::vec3( 1.5f,  2.0f, -2.5f), 
-        glm::vec3( 1.5f,  0.2f, -1.5f), 
-        glm::vec3(-1.3f,  1.0f, -1.5f)  
-    };
-    
     vkCmdBindIndexBuffer(commandBuffer, context.m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdBindDescriptorSets(commandBuffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -1853,18 +1837,19 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
                             0,
                             nullptr);
     
-    for (int i = 0; i < ArrayCount(meshPositions); i++)
+    Transform & transform = renderData->m_transform;
+        
+        for (uint32 i = 0; i < transform.m_meshPositions.size(); i++)
     {
         MeshPushConstants meshConstants = {};
-        meshConstants.m_model = glm::translate(glm::mat4(1.0), meshPositions[i]);
+        meshConstants.m_model = glm::translate(glm::mat4(1.0), transform.m_meshPositions[i]);
         vkCmdPushConstants(commandBuffer,
                            context.m_pipelineLayout, 
                            VK_SHADER_STAGE_VERTEX_BIT, 
                            0, sizeof(meshConstants), 
                            &meshConstants);
-        vkCmdDrawIndexed(commandBuffer, (uint32)renderData->m_model.m_indices.size(), 1, 0, 0, 0);
+        vkCmdDrawIndexed(commandBuffer, (uint32)transform.m_model.m_indices.size(), 1, 0, 0, 0);
     }
-    
     
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
@@ -1937,13 +1922,14 @@ internal void InitVulkan(Application & app)
     context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, context.m_swapChainImageViews, context.m_depthImageView, context.m_renderPass, context.m_swapChainExtent);
     
     {
-        BufferCreateResult result = CreateAndBindVertexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, app.m_renderData.m_model.m_vertices);
+        
+        BufferCreateResult result = CreateAndBindVertexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, app.m_renderData.m_transform.m_model.m_vertices);
         context.m_vertexBuffer        = result.m_buffer;
         context.m_vertexBufferMemory  = result.m_bufferMemory;
     }
     
     {
-        BufferCreateResult result = CreateAndBindIndexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, app.m_renderData.m_model.m_indices);
+        BufferCreateResult result = CreateAndBindIndexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, app.m_renderData.m_transform.m_model.m_indices);
         context.m_indexBuffer         = result.m_buffer;
         context.m_indexBufferMemory   = result.m_bufferMemory;
     }
@@ -2029,24 +2015,6 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     vkResetFences(context.m_device, 1, &context.m_inFlightFences[context.m_currentFrame]);
     
     vkResetCommandBuffer(context.m_commandBuffers[context.m_currentFrame], 0);
-    
-    #if 0
-    glm::vec3 modelPoses[] = {
-        glm::vec3( 0.0f,  0.0f,  0.0f), 
-        glm::vec3( 2.0f,  5.0f, -15.0f), 
-        glm::vec3(-1.5f, -2.2f, -2.5f),  
-        glm::vec3(-3.8f, -2.0f, -12.3f),  
-        glm::vec3( 2.4f, -0.4f, -3.5f),  
-        glm::vec3(-1.7f,  3.0f, -7.5f),  
-        glm::vec3( 1.3f, -2.0f, -2.5f),  
-        glm::vec3( 1.5f,  2.0f, -2.5f), 
-        glm::vec3( 1.5f,  0.2f, -1.5f), 
-        glm::vec3(-1.3f,  1.0f, -1.5f) ,
-    };
-    
-    static int32 index = 0;
-    index = (index + 1) % ArrayCount(modelPoses);
-    #endif
     
     RecordCommandBuffer(context, renderData, imageIndex);
     UpdateUniformBuffer(context, renderData);

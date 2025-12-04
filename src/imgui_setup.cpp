@@ -85,7 +85,7 @@ internal void ImguiStartFrame(Application & app)
 // Create a dockspace in main viewport, where central node is transparent.
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     
-    #if 0
+    #if 1
     local_persist bool show_demo_window = false, show_another_window = false;
 ImGuiIO& io = ImGui::GetIO(); (void)io;
 if (show_demo_window)
@@ -104,7 +104,7 @@ if (show_demo_window)
         ImGui::Checkbox("Another Window", &show_another_window);
         
         Camera & camera = app.m_renderData.m_camera;
-        ImGui::SliderFloat("camera fov", &camera.m_fovy, 10.0f, 180.0f);
+        ImGui::SliderFloat("camera fov", &camera.m_fovy, 10.0f, 100.0f);
         ImGui::SliderFloat("near plane", &camera.m_nearClip, 0.1f, 10.0f);
         ImGui::SliderFloat("far plane", &camera.m_farClip, 10.0f, 100.0f);
         ImGui::ColorEdit3("clear color", (float*)&app.m_renderData.m_clearColor); // Edit 3 floats representing a color
@@ -115,11 +115,14 @@ if (show_demo_window)
         ImGui::Text("counter = %d", counter);
 
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
-        ImGui::Text("Camera Forward direction (%.2f, %.2f, %.2f)", 
-                    camera.m_forwardDirection.x,
-                    camera.m_forwardDirection.y,
-                    camera.m_forwardDirection.z);
-                    
+        ImGui::Text("Camera Pitch %.2f, Camera Yaw %.2f", 
+                    camera.m_pitch,
+                    camera.m_yaw);
+        ImGui::Text("Camera Position (%.2f, %.2f, %.2f)", 
+                    camera.m_pos.x,
+                    camera.m_pos.y,
+                    camera.m_pos.z);
+        
         
         Input & input = app.m_input;
         

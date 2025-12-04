@@ -5,13 +5,17 @@
 #include "engine_lib.h"
 #include <glm/glm.hpp>
 
- // constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
- // constexpr char * TEXTURE_PATH = "resources/objects/cyborg/cyborg_diffuse.png";
- constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
- constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
+constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
+constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack.obj";
 
-// constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
+// constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
+ // constexpr char * TEXTURE_PATH = "resources/objects/cyborg/cyborg_diffuse.png";
+ // constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
 // constexpr char * MODEL_PATH   = "resources/objects/viking_room/viking_room.obj";
+
+
+#define MAX_TRANSFORM 1000
+
 
 struct Vertex
 {
@@ -35,22 +39,30 @@ struct Camera
 {
     glm::vec3 m_pos = {};
     glm::vec3 m_forwardDirection = { 0.0f, 1.0f, 0.0f };
+    glm::vec3 m_up = { 0.0f, 0.0f, 1.0f };
     
-    float m_fovy = 45.0f;
-    float m_nearClip = 0.1f;
-    float m_farClip = 100.0f;
+     real32 m_fovy = 45.0f;
+    real32 m_nearClip = 0.1f;
+     real32 m_farClip = 100.0f;
+    real32 m_pitch = 0.0f;
+    real32 m_yaw = 0.0f;
     
 };
+
+struct Transform 
+{
+    std::vector<glm::vec3> m_meshPositions;
+    Model m_model;
+    };
 
 struct RenderData 
 {
     glm::vec4 m_clearColor;
     Camera m_camera;
-    // TODO: Need to make a transform struct to contains a model
-    Model m_model;
     
-    
-};
+    // TODO: Current We can only Render one transform. 
+    Transform m_transform;
+    };
 
 #define RENDER_INTERFACE_H
 #endif //RENDER_INTERFACE_H

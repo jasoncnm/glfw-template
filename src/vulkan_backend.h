@@ -6,9 +6,6 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include "engine_lib.h"
-
-
 #define GLM_ENABLE_EXPERIMENTAL
 #define GLM_FORCE_RADIANS
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
@@ -17,6 +14,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtx/hash.hpp>
 
+#include "engine_lib.h"
 //====================================================
 //      NOTE: Vulkan Constexpr
 //====================================================

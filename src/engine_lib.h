@@ -146,16 +146,16 @@ void _log(char * prefix, char * msg, TextColor textColor, Args... args)
 //  ========================================================================
 // NOTE: Array
 //  ========================================================================
-template<typename T, int N>
+template<typename T, uint32 N>
 struct Array
 {
-    static constexpr int maxElements = N;
-    int count = 0;
+    static constexpr uint32 maxElements = N;
+     uint32 count = 0;
     T elements[N];
 
-    Array(int count = 0) : count(count) {}
+    Array(uint32 count = 0) : count(count) {}
     
-    T & operator[](int idx)
+    T & operator[](uint32 idx)
     {
         SM_ASSERT(idx >= 0, "Idx negative!");
         SM_ASSERT(idx < count, "Idx out of bounds!");
@@ -179,7 +179,7 @@ struct Array
     {
         std::vector<T> result;
         result.reserve(count);
-        for (int i = 0; i < count; i++)
+        for (uint32 i = 0; i < count; i++)
         {
             result.push_back(elements[i]);
         }
@@ -187,13 +187,13 @@ struct Array
         return result;
     }
 
-    void Resize(int32 size)
+    void Resize(uint32 size)
     {
         SM_ASSERT(size <= maxElements, "size if larget than max elements");
         count = size;
     }
 
-    void Copy(T * array, int32 arrayCount)
+    void Copy(T * array, uint32 arrayCount)
     {
         SM_ASSERT(arrayCount < maxElements, "Array size is to big copy!");
 
@@ -208,13 +208,13 @@ struct Array
 
     void Fill(T element)
     {
-        for (int i = 0; i < count; i++)
+        for (uint32 i = 0; i < count; i++)
         {
             elements[i] = element;            
         }
     }
     
-    void RemoveIdxAndSwap(int idx)
+    void RemoveIdxAndSwap(uint32 idx)
     {
         SM_ASSERT(idx >= 0, "Idx negative!");
         SM_ASSERT(idx < count, "Idx out of bounds!");
@@ -225,7 +225,7 @@ struct Array
     {
         if (count > 1)
         {
-            for (int i = 0; i < count / 2; i++)
+            for (uint32 i = 0; i < count / 2; i++)
             {
                 T temp = elements[i];
                 elements[i] = elements[count - 1 - i];
@@ -493,7 +493,7 @@ internal float Distance(Vec2 a, Vec2 b)
 
 struct IVec2;
 internal Vec2 IVec2ToVec2(IVec2 val);
-internal float Abs(float x)
+internal real32 Abs(real32 x)
 {
     return x > 0 ? x : -x;
 }

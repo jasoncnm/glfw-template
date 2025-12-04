@@ -21,11 +21,19 @@
 
 /*
 TODO: Things that I can do
-  - Continue mipmaping tutorial
-  - Draw shader arts
+- Continue mipmaping tutorial
+    - Material System
+- Normal mapping
+- Skybox rendering
+- Add lighting
+- PBR
+  - hierarchical model
+- Ambient occulsion
+- Current We can only Render one transform. 
+    - Draw shader arts
 - Support passing multiple textures to fragment shader
 - Impliment custom hash map without using std::hash and std::unordered_map
-  - Impliment custom arena allocator for vulkan object allocations
+   - Impliment custom arena allocator for vulkan object allocations
   */
 
 //====================================================
@@ -142,8 +150,28 @@ internal Model LoadModel(const char * objFileName)
 
 void InitRenderData(Application & app)
 {
-    app.m_renderData.m_model = LoadModel(MODEL_PATH);
+    
+    Transform tr;
+    tr.m_meshPositions = {
+        glm::vec3( 0.0f,  0.0f,  0.0f), 
+        glm::vec3( 2.0f,  5.0f, -15.0f), 
+        glm::vec3(-1.5f, -2.2f, -2.5f),  
+        glm::vec3(-3.8f, -2.0f, -12.3f),  
+        glm::vec3( 2.4f, -0.4f, -3.5f),  
+        glm::vec3(-1.7f,  3.0f, -7.5f),  
+        glm::vec3( 1.3f, -2.0f, -2.5f),  
+        glm::vec3( 1.5f,  2.0f, -2.5f), 
+        glm::vec3( 1.5f,  0.2f, -1.5f), 
+        glm::vec3(-1.3f,  1.0f, -1.5f)  
+    };
+    
+    tr.m_model = LoadModel(MODEL_PATH);
+    
+    app.m_renderData.m_transform = tr;
     app.m_renderData.m_camera = {};
+    app.m_renderData.m_camera.m_pos = { 8.78f, -11.88f, 5.66f };
+    app.m_renderData.m_camera.m_pitch = -36;
+    app.m_renderData.m_camera.m_yaw = -31;
     app.m_renderData.m_clearColor = glm::vec4(HexToRGB(0x142A9C), 1.0f);
 }
 
@@ -178,38 +206,46 @@ internal void InputKeyCallback(GLFWwindow * _window, int32 keycode, int32 scanco
         }
         default: {}
     }
-    
-}
+    }
 
 internal void InputMouseButtonCallback(GLFWwindow * _window, int32 button, int32 action, int32 mods)
 {
+    Application * app = (Application *)glfwGetWindowUserPointer(_window);
+     MouseButton * mouseButton = &app->m_input.mouseButtons[button];
+    
     switch(action)
     {
         case GLFW_PRESS:
         {
-            SM_TRACE("presed mouse button: %d", button);
+            mouseButton->isDown = true;
+            mouseButton->halfTransitionCount++;
             break;
         }
         case GLFW_RELEASE:
         {
-            SM_TRACE("released mouse button: %d", button);
+            mouseButton->isDown = false;
+            mouseButton->halfTransitionCount++;
             break;
         }
         default: {}
     }
 }
 
-internal void InputScrollCallback(GLFWwindow* window, double xoffset, double yoffset)
+internal void InputScrollCallback(GLFWwindow* _window, real64  xoffset, real64 yoffset)
 {
     SM_TRACE("MouseScroll: (%.1f, %.1f)", xoffset, yoffset);
-}
+    Application * app = (Application *)glfwGetWindowUserPointer(_window);
+    app->m_input.mouseScrollDelta = (real32)yoffset;
+    }
 
-internal void InputMouseCursorCallback(GLFWwindow* window, double xpos, double ypos)
+internal void InputMouseCursorCallback(GLFWwindow* _window, real64 xpos, real64 ypos)
 {
     // SM_TRACE("mouse position: (%.2f, %.2f)", xpos, ypos);
-}
+    Application * app = (Application *)glfwGetWindowUserPointer(_window);
+    app->m_input.mousePos = { xpos, ypos };
+    }
 
-internal void InputSetJoystickCallback(int jid, int event)
+internal void InputSetJoystickCallback(int32 jid, int32 event)
 {
     if (event == GLFW_CONNECTED)
     {
@@ -285,42 +321,61 @@ internal void Update(Application & app, float dt)
     }
     
     real32 cameraMoveSpeed = 5.0f;
-    real32 cameraRotSpeed = 1.0f;
+    real32 pitchSpeed = 2.0f * 50.0f;
+    real32 yawSpeed = 2.0f * 50.0f;
     Camera & camera = app.m_renderData.m_camera;
+    
+    if (Abs(input.mouseScrollDelta) > 0)
+    {
+        real32 step = 3.0f;
+        camera.m_fovy -= step * input.mouseScrollDelta;
+        if (camera.m_fovy > 100.0f) camera.m_fovy = 95.0f;
+        if (camera.m_fovy < 1.0f) camera.m_fovy = 1.0f;
+    }
     
     glm::vec3 forward = camera.m_forwardDirection;
     glm::vec3 right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::vec3 up      = glm::cross(right, forward);
+    glm::vec3 up      = camera.m_up;
     
-    glm::vec3 panDir(0);
-    real32 pitchDelta = 0.0f;
-    real32 yawDelta = 0.0f;
-    
+    if (MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
+    {
+        real32 sensitivity = 0.1f;
+        glm::vec2 offset = input.mousePos - input.prevMousePos;
+        offset *= sensitivity;
+        camera.m_yaw += offset.x;
+        camera.m_pitch += -offset.y;
+    }
+    else
+    {
     if (KeyIsDown(input, GLFW_KEY_UP))
     {
-        pitchDelta = cameraRotSpeed * dt; 
+            camera.m_pitch += pitchSpeed * dt; 
     }
     
     if (KeyIsDown(input, GLFW_KEY_DOWN))
     {
-        pitchDelta = -cameraRotSpeed * dt;
+            camera.m_pitch += -pitchSpeed * dt;
     }
     
     if (KeyIsDown(input, GLFW_KEY_LEFT))
     {
-        yawDelta = -cameraRotSpeed * dt;
+            camera.m_yaw += -yawSpeed * dt;
     }
     
     if (KeyIsDown(input, GLFW_KEY_RIGHT))
     {
-        yawDelta = cameraRotSpeed * dt;
+            camera.m_yaw += yawSpeed * dt;
     }
+}
     
-    // TODO what happend if camera forward direction at up / -up
-    glm::quat quaternion =
-        glm::normalize(glm::cross(glm::angleAxis(pitchDelta, right),
-                                             glm::angleAxis(-yawDelta, up)));
-    camera.m_forwardDirection = glm::rotate(quaternion, camera.m_forwardDirection);
+    if(camera.m_pitch > 89.0f)
+        camera.m_pitch =  89.0f;
+    if(camera.m_pitch < -89.0f)
+        camera.m_pitch = -89.0f;
+    
+    glm::quat pitchQuat = glm::angleAxis(glm::radians(camera.m_pitch), glm::vec3(1.0f, 0.0f, 0.0f));
+    glm::quat yawQuat = glm::angleAxis(-glm::radians(camera.m_yaw), glm::vec3(0.0f, 0.0f, 1.0f));
+    camera.m_forwardDirection = glm::rotate(yawQuat * pitchQuat, glm::vec3(0.0f, 1.0f, 0.0f));
 
     glm::vec3 moveDir(0);
     
@@ -363,7 +418,18 @@ internal void Update(Application & app, float dt)
         camera.m_pos += glm::normalize(moveDir) * cameraMoveSpeed * dt;
     }
     
+    camera.m_up = up;
+    
 }
+
+internal void Init(Application & app)
+{
+    InitWindow(app);
+    InitInput(app);
+    InitRenderData(app);
+    InitVulkan(app);
+    InitImGui(app);
+    }
 
 internal void CleanUp(Application & app)
 {
@@ -383,6 +449,7 @@ internal void MainLoop(Application & app)
         currentTime = time;
         
         glfwPollEvents();
+        
         ImguiStartFrame(app);
         
         Update(app, dt);
@@ -391,6 +458,10 @@ internal void MainLoop(Application & app)
         DrawFrame(app, &app.m_renderData);
         app.m_running = app.m_running && !glfwWindowShouldClose(app.m_window);
         
+        // NOTE: Reset/Update Input End of frame
+        app.m_input.mouseScrollDelta = 0.0f;
+        app.m_input.prevMousePos = app.m_input.mousePos;
+        
     }
     vkDeviceWaitIdle(app.m_renderContext.m_device);
     }
@@ -398,11 +469,7 @@ internal void MainLoop(Application & app)
 void RunApplication(Application & app)
 {
     // NOTE: Run Application
-    InitWindow(app);
-    InitInput(app);
-    InitRenderData(app);
-    InitVulkan(app);
-    InitImGui(app);
+    Init(app);
     MainLoop(app);
     CleanUp(app);
     }
