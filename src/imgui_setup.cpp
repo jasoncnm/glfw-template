@@ -76,7 +76,7 @@ internal void CleanUpImgui()
     ImGui::DestroyContext();
 }
 
-internal void ImguiStartFrame(Application & app)
+internal void UpdateImGui(Application & app)
 {
     // Start the Dear ImGui frame
     ImGui_ImplVulkan_NewFrame();
@@ -85,19 +85,41 @@ internal void ImguiStartFrame(Application & app)
 // Create a dockspace in main viewport, where central node is transparent.
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     
-    #if 1
-    local_persist bool show_demo_window = false, show_another_window = false;
-ImGuiIO& io = ImGui::GetIO(); (void)io;
-if (show_demo_window)
+    local_persist bool show_demo_window = false, show_another_window = false, show_debug_window = false;
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    
+    if (ImGui::BeginMainMenuBar())
     {
-        ImGui::ShowDemoWindow(&show_demo_window);
+        
+    if (ImGui::BeginMenu("Application"))
+        {
+            if (ImGui::MenuItem("Quit", "Q"))
+            {
+                app.m_running = false;
+            }
+        ImGui::EndMenu();
+    }
+    if (ImGui::BeginMenu("Edit"))
+        {
+            if (!show_debug_window && ImGui::MenuItem("Show Debug Window"))
+            {
+                show_debug_window = true;
+            }
+            else if (show_debug_window && ImGui::MenuItem("Close Debug Window"))
+            {
+                show_debug_window = false;
+            }
+            ImGui::EndMenu();
+    }
+    ImGui::EndMainMenuBar();
     }
     
-    // 2. Show a simple window that we create ourselves. We use a Begin/End pair to create a named window.
+    if (show_debug_window) 
     {
+        
         static int counter = 0;
 
-        ImGui::Begin("Hello, world!");                          // Create a window called "Hello, world!" and append into it.
+        ImGui::Begin("Hello, world!", &show_debug_window); // Create a window called "Hello, world!" and append into it.
         
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
         ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
@@ -113,7 +135,7 @@ if (show_demo_window)
             counter++;
         ImGui::SameLine();
         ImGui::Text("counter = %d", counter);
-
+        
         ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
         ImGui::Text("Camera Pitch %.2f, Camera Yaw %.2f", 
                     camera.m_pitch,
@@ -123,41 +145,22 @@ if (show_demo_window)
                     camera.m_pos.y,
                     camera.m_pos.z);
         
-        
-        Input & input = app.m_input;
-        
-        if (KeyIsDown(input, GLFW_KEY_W)) 
+        if (show_demo_window)
         {
-            ImGui::Text("Key W is down."); 
+            ImGui::ShowDemoWindow(&show_demo_window);
         }
         
-        if (KeyIsDown(input, GLFW_KEY_A)) 
+        // 3. Show another simple window.
+        if (show_another_window)
         {
-            ImGui::Text("Key A is down."); 
-        }
-        
-        if (KeyIsDown(input, GLFW_KEY_S)) 
-        {
-            ImGui::Text("Key S is down."); 
-        }
-        
-        if (KeyIsDown(input, GLFW_KEY_D)) 
-        {
-            ImGui::Text("Key D is down."); 
+            ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            ImGui::Text("Hello from another window!");
+            if (ImGui::Button("Close Me"))
+                show_another_window = false;
+            ImGui::End();
         }
         
         ImGui::End();
-
-    }
-
-    // 3. Show another simple window.
-    if (show_another_window)
-    {
-        ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-        ImGui::Text("Hello from another window!");
-        if (ImGui::Button("Close Me"))
-            show_another_window = false;
-        ImGui::End();
-    }
-    #endif
 }
+    
+    }

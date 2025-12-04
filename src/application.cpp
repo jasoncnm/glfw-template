@@ -442,15 +442,25 @@ internal void CleanUp(Application & app)
 internal void MainLoop(Application & app)
 {
     real64 currentTime = glfwGetTime();
+     real32 tick = 0.0f;
     for ( ;app.m_running; )
     {
         real64 time = glfwGetTime();
         real32 dt = (real32)(time - currentTime);
         currentTime = time;
+        tick -= dt;
+        
+        if (tick < 0)
+        {
+        char title[50];
+        sprintf(title, "Vulkan %.2f ms %.1f fps", dt * 1000, 1.0f / dt);
+            glfwSetWindowTitle(app.m_window, title);
+            tick += 0.1f;
+        }
         
         glfwPollEvents();
         
-        ImguiStartFrame(app);
+        UpdateImGui(app);
         
         Update(app, dt);
 
