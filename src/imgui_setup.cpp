@@ -113,7 +113,8 @@ internal void UpdateImGui(Application & app)
     }
     ImGui::EndMainMenuBar();
     }
-    app.m_debugWindowHovered = false;
+    
+    app.m_editingImgui = io.WantCaptureMouse;
     
     if (show_debug_window) 
     {
@@ -121,10 +122,6 @@ internal void UpdateImGui(Application & app)
         static int counter = 0;
 
         ImGui::Begin("Hello, world!", &show_debug_window); // Create a window called "Hello, world!" and append into it.
-        if (ImGui::IsWindowHovered())
-        {
-            app.m_debugWindowHovered = true;
-        }
         
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
         ImGui::Checkbox("Another Window", &show_another_window);
@@ -161,11 +158,6 @@ internal void UpdateImGui(Application & app)
         if (show_another_window)
         {
             ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
-            
-            if (ImGui::IsWindowHovered())
-            {
-                app.m_debugWindowHovered = true;
-            }
             
             ImGui::Text("Hello from another window!");
             if (ImGui::Button("Close Me"))

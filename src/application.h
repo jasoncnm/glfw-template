@@ -35,7 +35,7 @@ struct Application
     bool   m_framebufferResized = false;
     bool   m_vSync = false;
     bool   m_running = false;
-    bool   m_debugWindowHovered = false;
+    bool   m_editingImgui = false;
     
     real32 m_fixedTimeStep = 0.1f;
     

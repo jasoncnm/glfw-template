@@ -361,7 +361,7 @@ internal void Update(Application & app, float dt)
     glm::vec3 right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
     glm::vec3 up      = camera.m_up;
     
-    if (!app.m_debugWindowHovered && MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
+    if (!app.m_editingImgui && MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
     {
         real32 sensitivity = 0.1f;
         glm::vec2 offset = input.mousePos - input.prevMousePos;
@@ -407,6 +407,8 @@ internal void Update(Application & app, float dt)
     right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
     up      = glm::cross(right, forward);
     
+    if (!app.m_editingImgui)
+    {
     if (KeyIsDown(input, GLFW_KEY_W)) 
     {
         moveDir += forward;
@@ -435,6 +437,7 @@ internal void Update(Application & app, float dt)
     if (KeyIsDown(input, GLFW_KEY_LEFT_CONTROL))
     {
         moveDir += -up;
+    }
     }
     
     if (moveDir != glm::vec3(0))
