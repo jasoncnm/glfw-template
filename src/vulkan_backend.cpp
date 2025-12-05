@@ -751,13 +751,19 @@ CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     pipelineLayoutInfo.setLayoutCount = 1;            
     pipelineLayoutInfo.pSetLayouts = &descriptorSetLayout;
     
-    VkPushConstantRange pushConstants = {};
-    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(MeshPushConstants);
+    VkPushConstantRange vertPushConst = {};
+    vertPushConst.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    vertPushConst.offset = 0;
+    vertPushConst.size = sizeof(VertPushConstants);
     
-    pipelineLayoutInfo.pushConstantRangeCount = 1;    
-    pipelineLayoutInfo.pPushConstantRanges = &pushConstants;
+    VkPushConstantRange fragPushConst = {};
+    fragPushConst.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
+    fragPushConst.offset = sizeof(VertPushConstants);
+    fragPushConst.size = sizeof(FragPushConstants);
+    
+    VkPushConstantRange pushConstants[] = { vertPushConst, fragPushConst };
+     pipelineLayoutInfo.pushConstantRangeCount = ArrayCount(pushConstants);    
+    pipelineLayoutInfo.pPushConstantRanges = pushConstants;
      
     VkPipelineLayout layout;
     if (vkCreatePipelineLayout(device, &pipelineLayoutInfo, nullptr, &layout) != VK_SUCCESS)
@@ -1953,9 +1959,20 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     
     Transform & transform = renderData->m_transform;
     
+    FragPushConstants fragConsts = {};
+    fragConsts.m_viewDistence = renderData->m_fog.m_viewDistence;
+    fragConsts.m_steepness = renderData->m_fog.m_steepness;
+    fragConsts.m_fogColor = renderData->m_fog.m_fogColor;
+    
+    vkCmdPushConstants(commandBuffer,
+                       context.m_pipelineLayout, 
+                       VK_SHADER_STAGE_FRAGMENT_BIT, 
+                       sizeof(VertPushConstants), sizeof(fragConsts), 
+                       &fragConsts);
+    
     for (glm::vec3 meshPosition : transform.m_meshPositions)
     {
-        MeshPushConstants meshConstants = {};
+        VertPushConstants meshConstants = {};
         meshConstants.m_model = glm::translate(glm::mat4(1.0), meshPosition);
         vkCmdPushConstants(commandBuffer,
                            context.m_pipelineLayout, 
@@ -2018,7 +2035,7 @@ internal void InitVulkan(Application & app)
                                                       context.m_physicalDevice, 
                                                       context.m_commandPool, 
                                                       context.m_graphicsQueue, 
-                                                      TEXTURE_PATH);
+                                                      TEXTURE_PATH3);
         context.m_textureImage       = result.m_image;
         context.m_textureImageMemory = result.m_imageMemory;
         context.m_mipLevels          = result.m_mipLevels;

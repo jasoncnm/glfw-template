@@ -68,10 +68,17 @@ struct UniformBufferObject
     glm::mat4 m_projection;
 };
 
-struct MeshPushConstants
+struct VertPushConstants
 {
     glm::mat4 m_model;
 };
+
+struct FragPushConstants
+{
+    glm::vec3 m_fogColor;
+    real32 m_viewDistence;
+    real32 m_steepness;
+    };
 
 struct VulkanContext
 {

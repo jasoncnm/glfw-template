@@ -158,17 +158,26 @@ internal void GeneratePositions(std::vector<glm::vec3> & meshPositions, uint32 c
     real32 maxy = 10.0f;
     real32 maxz = 10.0f;
     
-    meshPositions.clear();
+    int changed = (int32)meshPositions.size() - (int32)count;
     
-    for (uint32 i = 0; i < count; i++)
+    if (changed > 0)
+    {
+        for (int32 i = 0; i < changed; i++)
+        {
+            meshPositions.pop_back();
+        }
+    }
+    else
+    {
+        for (uint32 i = (uint32)meshPositions.size(); i < count; i++)
     {
         float x = minx + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxx - minx)));
         float y = miny + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxy - miny)));
         float z = minz + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxz - minz)));
         
         glm::vec3 pos(x, y, z);
-        
         meshPositions.push_back(pos);
+        }
     }
     
 }
@@ -179,23 +188,8 @@ internal void InitRenderData(Application & app)
     Transform tr;
     tr.m_numCopies = 1000;
     GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
-    #if 0
-    tr.m_meshPositions = {
-        glm::vec3( 0.0f,  0.0f,  0.0f), 
-        glm::vec3( 2.0f,  5.0f, -15.0f), 
-        glm::vec3(-1.5f, -2.2f, -2.5f),  
-        glm::vec3(-3.8f, -2.0f, -12.3f),  
-        glm::vec3( 2.4f, -0.4f, -3.5f),  
-        glm::vec3(-1.7f,  3.0f, -7.5f),  
-        glm::vec3( 1.3f, -2.0f, -2.5f),  
-        glm::vec3( 1.5f,  2.0f, -2.5f), 
-        glm::vec3( 1.5f,  0.2f, -1.5f), 
-        glm::vec3(-1.3f,  1.0f, -1.5f)  
-    };
     
-#endif
-    
-    tr.m_model = LoadModel(MODEL_PATH);
+    tr.m_model = LoadModel(MODEL_PATH3);
     
     app.m_renderData.m_transform = tr;
     app.m_renderData.m_camera = {};

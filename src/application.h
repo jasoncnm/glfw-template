@@ -30,8 +30,8 @@ constexpr int32 HEIGHT = 1080;
 
 struct Application
 {
-int32 m_joystick = -1;
-   
+    int32 m_joystick = -1;
+    
     bool   m_framebufferResized = false;
     bool   m_vSync = false;
     bool   m_running = false;

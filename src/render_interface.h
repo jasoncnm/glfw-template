@@ -5,13 +5,14 @@
 #include "engine_lib.h"
 #include <glm/glm.hpp>
 
-// constexpr char * TEXTURE_PATH = "resources/objects/backpack/diffuse_2.jpg";
-// constexpr char * MODEL_PATH   = "resources/objects/backpack/backpack_2.obj";
+ constexpr char * TEXTURE_PATH1 = "resources/objects/backpack/diffuse_2.jpg";
+constexpr char * MODEL_PATH1   = "resources/objects/backpack/backpack_2.obj";
 
-// constexpr char * MODEL_PATH   = "resources/objects/cyborg/cyborg.obj";
- // constexpr char * TEXTURE_PATH = "resources/objects/cyborg/cyborg_diffuse.png";
-  constexpr char * TEXTURE_PATH = "resources/objects/viking_room/viking_room.png";
- constexpr char * MODEL_PATH   = "resources/objects/viking_room/viking_room.obj";
+constexpr char * MODEL_PATH2   = "resources/objects/cyborg/cyborg.obj";
+ constexpr char * TEXTURE_PATH2 = "resources/objects/cyborg/cyborg_diffuse.png";
+
+constexpr char * TEXTURE_PATH3 = "resources/objects/viking_room/viking_room.png";
+ constexpr char * MODEL_PATH3   = "resources/objects/viking_room/viking_room.obj";
 
 
 #define MAX_TRANSFORM 1000
@@ -56,10 +57,18 @@ struct Transform
     uint32 m_numCopies;
     };
 
+struct Fog
+{
+    real32 m_viewDistence = 5.0f;
+    real32 m_steepness = 1.0f;
+    glm::vec3 m_fogColor = glm::vec3(1.0f);
+};
+
 struct RenderData 
 {
     glm::vec4 m_clearColor;
     Camera m_camera;
+    Fog m_fog;
     
     // TODO: Current We can only Render one transform. 
     Transform m_transform;

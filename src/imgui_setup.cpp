@@ -132,11 +132,14 @@ internal void UpdateImGui(Application & app)
         Camera & camera = app.m_renderData.m_camera;
         
         ImGui::SliderInt("Num mesh instances", (int *)&app.m_renderData.m_transform.m_numCopies, 1, 5000);
+        ImGui::SliderFloat("Fog Distence", &app.m_renderData.m_fog.m_viewDistence, 1.0f, 50.0f);
+        ImGui::SliderFloat("Fog Steepness", &app.m_renderData.m_fog.m_steepness, 0.0f, 10.0f);
         ImGui::SliderFloat("camera fov", &camera.m_fovy, 10.0f, 100.0f);
         ImGui::SliderFloat("near plane", &camera.m_nearClip, 0.1f, 10.0f);
         ImGui::SliderFloat("far plane", &camera.m_farClip, 10.0f, 100.0f);
         ImGui::ColorEdit3("clear color", (float*)&app.m_renderData.m_clearColor); // Edit 3 floats representing a color
-
+        ImGui::ColorEdit3("fog color", (float*)&app.m_renderData.m_fog.m_fogColor); // Edit 3 floats representing a color
+        
         if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
         {
             counter++;

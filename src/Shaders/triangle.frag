@@ -7,6 +7,12 @@ layout(location = 0) out vec4 outColor;
 
 layout(binding = 1) uniform sampler2D texSampler;
 
+layout( push_constant ) uniform constants {
+		layout(offset = 64) vec3  fogColor;
+        float fogDistence;
+		float fogSteepness;
+} consts;
+
 float near = 0.1; 
 float far  = 100.0; 
   
@@ -24,10 +30,10 @@ float logisticDepth(float depth, float steepness, float offset)
 
 void main()
 {
-	float depth = logisticDepth(gl_FragCoord.z, 0.5f, 5.0f);
-
+	float depth = logisticDepth(gl_FragCoord.z, consts.fogSteepness, consts.fogDistence);
+	
     vec4 texel = texture(texSampler, fragTexCoord);
-	vec4 depth_color = vec4(depth * vec3(0.85f, 0.85f, 0.9f), 1.0f);
+	vec4 depth_color = vec4(depth * consts.fogColor, 1.0f);
 
     outColor = texel * (1.0f - depth) + depth_color;
 }
