@@ -558,12 +558,14 @@ float max(float a, float b)
 {
     return a > b ? a : b;
 }
-
- int64 max(int64 a, int64 b)
+int64 max(int64 a, int64 b)
 {
     return a > b ? a : b;
 }
-
+int32 max(int32 a, int32 b)
+{
+    return a > b ? a : b;
+}
 
 internal float Distance(IVec2 a, IVec2 b)
 {

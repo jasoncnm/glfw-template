@@ -35,9 +35,8 @@ int32 m_joystick = -1;
     bool   m_framebufferResized = false;
     bool   m_vSync = false;
     bool   m_running = false;
-
-    real32 m_zoom = 2.0f;
-    real32 m_fov  = 45.0f;
+    
+    real32 m_fixedTimeStep = 0.1f;
     
     GLFWwindow  * m_window;
     RenderData    m_renderData;

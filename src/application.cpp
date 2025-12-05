@@ -169,9 +169,9 @@ void InitRenderData(Application & app)
     
     app.m_renderData.m_transform = tr;
     app.m_renderData.m_camera = {};
-    app.m_renderData.m_camera.m_pos = { 8.78f, -11.88f, 5.66f };
-    app.m_renderData.m_camera.m_pitch = -36;
-    app.m_renderData.m_camera.m_yaw = -31;
+    app.m_renderData.m_camera.m_pos = { 6.78f, 3.88f, 3.66f };
+    app.m_renderData.m_camera.m_pitch = -37;
+    app.m_renderData.m_camera.m_yaw = -112;
     app.m_renderData.m_clearColor = glm::vec4(HexToRGB(0x142A9C), 1.0f);
 }
 
@@ -329,7 +329,7 @@ internal void Update(Application & app, float dt)
     {
         real32 step = 3.0f;
         camera.m_fovy -= step * input.mouseScrollDelta;
-        if (camera.m_fovy > 100.0f) camera.m_fovy = 95.0f;
+        if (camera.m_fovy > 100.0f) camera.m_fovy = 100.0f;
         if (camera.m_fovy < 1.0f) camera.m_fovy = 1.0f;
     }
     
@@ -445,6 +445,8 @@ internal void MainLoop(Application & app)
      real32 tick = 0.0f;
     for ( ;app.m_running; )
     {
+        glfwPollEvents();
+        
         real64 time = glfwGetTime();
         real32 dt = (real32)(time - currentTime);
         currentTime = time;
@@ -455,19 +457,16 @@ internal void MainLoop(Application & app)
         char title[50];
         sprintf(title, "Vulkan %.2f ms %.1f fps", dt * 1000, 1.0f / dt);
             glfwSetWindowTitle(app.m_window, title);
-            tick += 0.1f;
+            tick += app.m_fixedTimeStep;
         }
         
-        glfwPollEvents();
-        
-        UpdateImGui(app);
-        
+            UpdateImGui(app);
         Update(app, dt);
 
         // Rendering
         DrawFrame(app, &app.m_renderData);
-        app.m_running = app.m_running && !glfwWindowShouldClose(app.m_window);
         
+        app.m_running = app.m_running && !glfwWindowShouldClose(app.m_window);
         // NOTE: Reset/Update Input End of frame
         app.m_input.mouseScrollDelta = 0.0f;
         app.m_input.prevMousePos = app.m_input.mousePos;

@@ -1,7 +1,6 @@
 /* date = November 30th 2025 3:13 pm */
 #ifndef VULKAN_BACKEND_H
 
-
 #define GLFW_INCLUDE_NONE
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
@@ -76,8 +75,6 @@ struct MeshPushConstants
 
 struct VulkanContext
 {
-    uint32 m_currentFrame = 0;
-    
     VkDebugUtilsMessengerEXT   m_debugMessenger;
     
     VkInstance                 m_instance;
@@ -124,6 +121,9 @@ struct VulkanContext
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
     Array<VkFence, MAX_FRAMES_IN_FLIGHT>     m_inFlightFences;
+    
+    uint32 m_currentFrame = 0;
+    uint32 m_mipLevels;
     
      int64 m_shaderTimestamp;
     int64 m_textureTimestamp;
@@ -186,6 +186,7 @@ struct ImageCreateResult
 {
     VkImage        m_image;
     VkDeviceMemory m_imageMemory;
+    uint32         m_mipLevels;
 };
 
 struct DepthResourcesCreateResult

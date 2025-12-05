@@ -10,6 +10,6 @@
 
 int main()
 {
-    Application app;
+    Application app = {};
     RunApplication(app);
 }

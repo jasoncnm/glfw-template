@@ -527,7 +527,11 @@ internal CreateSwapChainResult CreateSwapChain(GLFWwindow * window, VkDevice dev
     return result;
 }
 
-internal VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat format, VkImageAspectFlags aspectFlags = VK_IMAGE_ASPECT_COLOR_BIT)
+internal VkImageView CreateImageView(VkDevice device, 
+                                     VkImage image,
+                                     VkFormat format,
+                                     VkImageAspectFlags aspectFlags,
+                                     uint32 mipLevels)
 {
     VkImageViewCreateInfo createInfo = {};
     createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
@@ -540,7 +544,7 @@ internal VkImageView CreateImageView(VkDevice device, VkImage image, VkFormat fo
     createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
     createInfo.subresourceRange.aspectMask = aspectFlags;
     createInfo.subresourceRange.baseMipLevel = 0;
-    createInfo.subresourceRange.levelCount = 1;
+    createInfo.subresourceRange.levelCount = mipLevels;
     createInfo.subresourceRange.baseArrayLayer = 0;
     createInfo.subresourceRange.layerCount = 1;
     
@@ -559,16 +563,16 @@ internal std::vector<VkImageView> CreateImageViews(std::vector<VkImage> & swapCh
     
     for (uint32 i = 0; i < swapChainImages.size(); i++)
     {
-        result[i] = CreateImageView(device, swapChainImages[i], swapChainImageFormat);
+        result[i] = CreateImageView(device, swapChainImages[i], swapChainImageFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
     }
     
     return result;
 }
 
-internal VkImageView CreateTextureImageView(VkDevice device, VkImage image)
+internal VkImageView CreateTextureImageView(VkDevice device, VkImage image, uint32 mipLevels)
 {
     
-    VkImageView imageView = CreateImageView(device, image, VK_FORMAT_R8G8B8A8_SRGB);
+    VkImageView imageView = CreateImageView(device, image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, mipLevels);
     
     return imageView;
 }
@@ -600,9 +604,11 @@ internal VkShaderModule CreateShaderModule(VkDevice device, std::vector<char> & 
   ==================================================================
   https://vulkan-tutorial.com/Drawing_a_triangle/Graphics_pipeline_basics/Introduction   
   ==================================================================
- - Vertex/Index buffer -> Input Assembler  -> Vertex Shader ->
-   Tessellation        -> Geomeetry shader -> Rasterization ->
-   Fragment Shader     -> Color blending   -> Framebuffer
+ -- (input) Vertex/Index buffer 
+-> Input Assembler (fixed funciton)  -> Vertex Shader 
+-> Tessellation        -> Geomeetry shader -> Rasterization(fixed funciton)
+ -> Fragment Shader     -> Color blending(fixed funciton)
+ -> (output) Framebuffer
   ==================================================================
 */
 internal CreateGraphicsPipelineResult
@@ -1147,6 +1153,7 @@ internal ImageCreateResult CreateImage(VkDevice device,
                                        VkPhysicalDevice physicalDevice,
                                        uint32 width,
                                        uint32 height,
+                                       uint32 mipLevels,
                                        VkFormat format,
                                        VkImageTiling tiling,
                                        VkImageUsageFlags usage,
@@ -1159,7 +1166,7 @@ internal ImageCreateResult CreateImage(VkDevice device,
     imageInfo.extent.width = width;
     imageInfo.extent.height = height;
     imageInfo.extent.depth = 1;
-    imageInfo.mipLevels = 1;
+    imageInfo.mipLevels = mipLevels;
     imageInfo.arrayLayers = 1;
     imageInfo.format = format;
     imageInfo.tiling = tiling;
@@ -1202,6 +1209,7 @@ internal void TransitionImageLayout(VkDevice device,
                                     VkQueue graphicsQueue,
                                     VkImage  image,
                                     VkFormat format,
+                                    uint32 mipLevels,
                                     VkImageLayout oldLayout,
                                     VkImageLayout newLayout)
 {
@@ -1219,7 +1227,7 @@ internal void TransitionImageLayout(VkDevice device,
     barrier.image = image;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseMipLevel = 0;
-    barrier.subresourceRange.levelCount = 1;
+    barrier.subresourceRange.levelCount = mipLevels;
     barrier.subresourceRange.baseArrayLayer = 0;
     barrier.subresourceRange.layerCount = 1;
     
@@ -1252,7 +1260,100 @@ internal void TransitionImageLayout(VkDevice device,
     EndSingleTimeCommands(device, commandBuffer, graphicsQueue, commandPool);
 }
 
-
+internal void GenerateMipMaps(VkDevice device,
+                              VkPhysicalDevice physicalDevice, 
+                              VkCommandPool commandPool,
+                              VkQueue graphicsQueue, 
+                              VkImage image,
+                              VkFormat imageFormat, 
+                              int32 texWidth,
+                              int32 texHeight,
+                              uint32 mipLevels)
+{
+    // NOTE: Check if image format supports linear blitting
+    VkFormatProperties formatProperties;
+    vkGetPhysicalDeviceFormatProperties(physicalDevice, imageFormat, &formatProperties);
+    if (!(formatProperties.optimalTilingFeatures & VK_FORMAT_FEATURE_SAMPLED_IMAGE_FILTER_LINEAR_BIT))
+    {
+        SM_ASSERT(false, "texture image format does not support linear bliting!");
+        
+        /*
+ NOTE: 
+There are two alternatives in this case. You could implement a function that searches common texture image formats for one that does support linear blitting, or you could implement the mipmap generation in software with a library like stb_image_resize. Each mip level can then be loaded into the image in the same way that you loaded the original image.
+It should be noted that it is uncommon in practice to generate the mipmap levels at runtime anyway. Usually they are pregenerated and stored in the texture file alongside the base level to improve loading speed.
+    */
+    }
+    
+    VkCommandBuffer commandBuffer = BeginSingleTimeCommands(device, commandPool);
+    
+    VkImageMemoryBarrier barrier{};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.image = image;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.levelCount = 1;
+    
+    int32 mipWidth = texWidth;
+    int32 mipHeight = texHeight;
+    for (uint32 i = 1; i < mipLevels; i++)
+    {
+        barrier.subresourceRange.baseMipLevel = i - 1;
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+        barrier.dstAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        
+        vkCmdPipelineBarrier(commandBuffer, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_TRANSFER_BIT,
+                             0, 0, nullptr, 0, nullptr, 1, &barrier);
+        
+        VkImageBlit blit = {};
+        blit.srcOffsets[0] = { 0, 0, 0 };
+        blit.srcOffsets[1] = { mipWidth, mipHeight, 1 };
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel = i - 1;
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount = 1;
+        blit.dstOffsets[0] = { 0, 0, 0 };
+        blit.dstOffsets[1] = { mipWidth > 1 ? mipWidth / 2 : 1, mipHeight > 1 ? mipHeight / 2 : 1, 1 };
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.dstSubresource.mipLevel = i;
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount = 1;
+        
+        vkCmdBlitImage(commandBuffer,
+                       image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &blit,
+                       VK_FILTER_LINEAR);
+        
+        barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+        
+        vkCmdPipelineBarrier(commandBuffer,
+                             VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
+                             0, 0, nullptr, 0, nullptr,1, &barrier);
+        
+        if (mipWidth > 1) mipWidth /= 2;
+        if (mipHeight > 1) mipHeight /= 2;
+    }
+    
+    barrier.subresourceRange.baseMipLevel = mipLevels - 1;
+    barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    barrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+    barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    
+    vkCmdPipelineBarrier(commandBuffer,
+                         VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 
+                         0, 0, nullptr, 0, nullptr,1, &barrier);
+    
+    EndSingleTimeCommands(device, commandBuffer, graphicsQueue, commandPool);
+}
 
 internal ImageCreateResult
 CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const char * texturePath)
@@ -1265,8 +1366,9 @@ CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPo
     int x,y, channels_in_file;
     unsigned char * imageData = stbi_load(texturePath, &x, &y, &channels_in_file, STBI_rgb_alpha);
     SM_ASSERT(imageData, "failed to load texture image!");
+    uint32 mipLevels = (uint32)(std::floor(std::log2(max(x, y)))) + 1;
     
-    VkDeviceSize imageSize = x * y * STBI_rgb_alpha;
+    VkDeviceSize imageSize = x * y * 4;
     
     
     BufferCreateResult stagingBufferResult = CreateBuffer(device,
@@ -1279,26 +1381,36 @@ CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPo
     vkMapMemory(device, stagingBufferResult.m_bufferMemory, 0, imageSize, 0, &data);
     memcpy(data, imageData, (uint32)imageSize);
     vkUnmapMemory(device, stagingBufferResult.m_bufferMemory);
-    
     stbi_image_free(imageData);
     
     ImageCreateResult textureImageResult = CreateImage(device,
                                                        physicalDevice,
                                                        (uint32)x,
                                                        (uint32)y,
+                                                       mipLevels,
                                                        VK_FORMAT_R8G8B8A8_SRGB,
                                                        VK_IMAGE_TILING_OPTIMAL,
-                                                       VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                       VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                                                        VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     
-    TransitionImageLayout(device, commandPool, graphicsQueue, textureImageResult.m_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    TransitionImageLayout(device,
+                          commandPool, 
+                          graphicsQueue,
+                          textureImageResult.m_image,
+                          VK_FORMAT_R8G8B8A8_SRGB,
+                          mipLevels, 
+                          VK_IMAGE_LAYOUT_UNDEFINED, 
+                          VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
     
     CopyBufferToImage(device, commandPool, graphicsQueue, stagingBufferResult.m_buffer, textureImageResult.m_image, (uint32)x, (uint32)y);
     
-    TransitionImageLayout(device, commandPool, graphicsQueue, textureImageResult.m_image, VK_FORMAT_R8G8B8A8_SRGB, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    // NOTE: transitioned to VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL while generating mipmaps
+    GenerateMipMaps(device, physicalDevice, commandPool, graphicsQueue, textureImageResult.m_image, VK_FORMAT_R8G8B8A8_SRGB,  x, y, mipLevels);
     
     vkDestroyBuffer(device, stagingBufferResult.m_buffer, nullptr);
     vkFreeMemory(device, stagingBufferResult.m_bufferMemory, nullptr);
+    
+    textureImageResult.m_mipLevels = mipLevels;
     
     return textureImageResult;
     
@@ -1334,7 +1446,7 @@ internal VkSampler CreateTextureSampler(VkDevice device, VkPhysicalDevice physic
     samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
     samplerInfo.mipLodBias = 0.0f;
     samplerInfo.minLod     = 0.0f;
-    samplerInfo.maxLod     = 0.0f;
+        samplerInfo.maxLod     = VK_LOD_CLAMP_NONE;
     
     VkSampler sampler = {};
     if (vkCreateSampler(device, &samplerInfo, nullptr, &sampler) != VK_SUCCESS)
@@ -1349,12 +1461,12 @@ internal DepthResourcesCreateResult CreateDepthResources(VkDevice device, VkPhys
 {
     VkFormat depthFormat = FindDepthFormat(physicalDevice);
     
-    ImageCreateResult depthImageResult = CreateImage(device, physicalDevice, extent.width, extent.height, depthFormat,
+    ImageCreateResult depthImageResult = CreateImage(device, physicalDevice, extent.width, extent.height, 1, depthFormat,
                                                      VK_IMAGE_TILING_OPTIMAL,
                                                      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     
-    VkImageView depthImageView = CreateImageView(device, depthImageResult.m_image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VkImageView depthImageView = CreateImageView(device, depthImageResult.m_image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
     
     DepthResourcesCreateResult result = {};
     result.m_depthImageResult = depthImageResult;
@@ -1907,8 +2019,9 @@ internal void InitVulkan(Application & app)
                                                       TEXTURE_PATH);
         context.m_textureImage       = result.m_image;
         context.m_textureImageMemory = result.m_imageMemory;
-    context.m_textureImageView   = CreateTextureImageView(context.m_device, context.m_textureImage);
-    context.m_textureSampler     = CreateTextureSampler(context.m_device, context.m_physicalDevice);
+        context.m_mipLevels          = result.m_mipLevels;
+    context.m_textureImageView = CreateTextureImageView(context.m_device, context.m_textureImage, context.m_mipLevels);
+    context.m_textureSampler   = CreateTextureSampler(context.m_device, context.m_physicalDevice);
     }
     
     {
