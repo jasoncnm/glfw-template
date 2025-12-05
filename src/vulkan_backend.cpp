@@ -1889,6 +1889,8 @@ internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderDa
     memcpy(context.m_uniformBuffersMapped[context.m_currentFrame], &ubo, sizeof(ubo));
 }
 
+
+
 internal
 void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint32 imageIndex)
 {
@@ -1950,11 +1952,11 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
                             nullptr);
     
     Transform & transform = renderData->m_transform;
-        
-        for (uint32 i = 0; i < transform.m_meshPositions.size(); i++)
+    
+    for (glm::vec3 meshPosition : transform.m_meshPositions)
     {
         MeshPushConstants meshConstants = {};
-        meshConstants.m_model = glm::translate(glm::mat4(1.0), transform.m_meshPositions[i]);
+        meshConstants.m_model = glm::translate(glm::mat4(1.0), meshPosition);
         vkCmdPushConstants(commandBuffer,
                            context.m_pipelineLayout, 
                            VK_SHADER_STAGE_VERTEX_BIT, 

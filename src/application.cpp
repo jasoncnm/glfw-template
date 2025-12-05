@@ -21,8 +21,7 @@
 
 /*
 TODO: Things that I can do
-- Continue mipmaping tutorial
-    - Material System
+- Material System
 - Normal mapping
 - Skybox rendering
 - Add lighting
@@ -148,10 +147,39 @@ internal Model LoadModel(const char * objFileName)
     return model;
 }
 
-void InitRenderData(Application & app)
+// TODO: temp code
+#include <cstdlib>
+internal void GeneratePositions(std::vector<glm::vec3> & meshPositions, uint32 count)
+{
+    real32 minx = -10.0f;
+    real32 miny = -10.0f;
+    real32 minz = -10.0f;
+    real32 maxx = 10.0f;
+    real32 maxy = 10.0f;
+    real32 maxz = 10.0f;
+    
+    meshPositions.clear();
+    
+    for (uint32 i = 0; i < count; i++)
+    {
+        float x = minx + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxx - minx)));
+        float y = miny + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxy - miny)));
+        float z = minz + static_cast <float> (rand()) /( static_cast <float> (RAND_MAX/(maxz - minz)));
+        
+        glm::vec3 pos(x, y, z);
+        
+        meshPositions.push_back(pos);
+    }
+    
+}
+
+internal void InitRenderData(Application & app)
 {
     
     Transform tr;
+    tr.m_numCopies = 1000;
+    GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
+    #if 0
     tr.m_meshPositions = {
         glm::vec3( 0.0f,  0.0f,  0.0f), 
         glm::vec3( 2.0f,  5.0f, -15.0f), 
@@ -164,6 +192,8 @@ void InitRenderData(Application & app)
         glm::vec3( 1.5f,  0.2f, -1.5f), 
         glm::vec3(-1.3f,  1.0f, -1.5f)  
     };
+    
+#endif
     
     tr.m_model = LoadModel(MODEL_PATH);
     
@@ -337,7 +367,7 @@ internal void Update(Application & app, float dt)
     glm::vec3 right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
     glm::vec3 up      = camera.m_up;
     
-    if (MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
+    if (!app.m_debugWindowHovered && MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
     {
         real32 sensitivity = 0.1f;
         glm::vec2 offset = input.mousePos - input.prevMousePos;
@@ -422,6 +452,13 @@ internal void Update(Application & app, float dt)
     
 }
 
+internal void FixedUpdate(Application & app)
+{
+    Transform & tr = app.m_renderData.m_transform;
+    if (tr.m_meshPositions.size() != tr.m_numCopies)
+        GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
+}
+
 internal void Init(Application & app)
 {
     InitWindow(app);
@@ -457,6 +494,7 @@ internal void MainLoop(Application & app)
         char title[50];
         sprintf(title, "Vulkan %.2f ms %.1f fps", dt * 1000, 1.0f / dt);
             glfwSetWindowTitle(app.m_window, title);
+            FixedUpdate(app);
             tick += app.m_fixedTimeStep;
         }
         

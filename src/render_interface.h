@@ -51,8 +51,9 @@ struct Camera
 
 struct Transform 
 {
-    std::vector<glm::vec3> m_meshPositions;
+     std::vector<glm::vec3> m_meshPositions;
     Model m_model;
+    uint32 m_numCopies;
     };
 
 struct RenderData 

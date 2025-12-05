@@ -85,7 +85,7 @@ internal void UpdateImGui(Application & app)
 // Create a dockspace in main viewport, where central node is transparent.
     ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode);
     
-    local_persist bool show_demo_window = false, show_another_window = false, show_debug_window = false;
+    local_persist bool show_another_window = false, show_debug_window = false;
     ImGuiIO& io = ImGui::GetIO(); (void)io;
     
     if (ImGui::BeginMainMenuBar())
@@ -113,6 +113,7 @@ internal void UpdateImGui(Application & app)
     }
     ImGui::EndMainMenuBar();
     }
+    app.m_debugWindowHovered = false;
     
     if (show_debug_window) 
     {
@@ -120,19 +121,27 @@ internal void UpdateImGui(Application & app)
         static int counter = 0;
 
         ImGui::Begin("Hello, world!", &show_debug_window); // Create a window called "Hello, world!" and append into it.
+        if (ImGui::IsWindowHovered())
+        {
+            app.m_debugWindowHovered = true;
+        }
         
         ImGui::Text("This is some useful text.");               // Display some text (you can use a format strings too)
-        ImGui::Checkbox("Demo Window", &show_demo_window);      // Edit bools storing our window open/close state
         ImGui::Checkbox("Another Window", &show_another_window);
         
         Camera & camera = app.m_renderData.m_camera;
+        
+        ImGui::SliderInt("Num mesh instances", (int *)&app.m_renderData.m_transform.m_numCopies, 1, 5000);
         ImGui::SliderFloat("camera fov", &camera.m_fovy, 10.0f, 100.0f);
         ImGui::SliderFloat("near plane", &camera.m_nearClip, 0.1f, 10.0f);
         ImGui::SliderFloat("far plane", &camera.m_farClip, 10.0f, 100.0f);
         ImGui::ColorEdit3("clear color", (float*)&app.m_renderData.m_clearColor); // Edit 3 floats representing a color
 
         if (ImGui::Button("Button"))                            // Buttons return true when clicked (most widgets return true when edited/activated)
+        {
             counter++;
+        }
+        
         ImGui::SameLine();
         ImGui::Text("counter = %d", counter);
         
@@ -145,15 +154,16 @@ internal void UpdateImGui(Application & app)
                     camera.m_pos.y,
                     camera.m_pos.z);
         
-        if (show_demo_window)
-        {
-            ImGui::ShowDemoWindow(&show_demo_window);
-        }
-        
         // 3. Show another simple window.
         if (show_another_window)
         {
             ImGui::Begin("Another Window", &show_another_window);   // Pass a pointer to our bool variable (the window will have a closing button that will clear the bool when clicked)
+            
+            if (ImGui::IsWindowHovered())
+            {
+                app.m_debugWindowHovered = true;
+            }
+            
             ImGui::Text("Hello from another window!");
             if (ImGui::Button("Close Me"))
                 show_another_window = false;

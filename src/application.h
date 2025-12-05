@@ -35,6 +35,7 @@ int32 m_joystick = -1;
     bool   m_framebufferResized = false;
     bool   m_vSync = false;
     bool   m_running = false;
+    bool   m_debugWindowHovered = false;
     
     real32 m_fixedTimeStep = 0.1f;
     
