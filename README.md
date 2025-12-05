@@ -14,9 +14,9 @@ A desktop application template using GLFW and Vulkan
   
 ![](captures/cap3.png)
 
-- Rendering Multiple Meshes Using Push Constants
+- Fog Effects With Depth Buffer
 
-![](captures/cap4.png) 
+![](captures/cap6.png)
 
 - Mipmap generations
 

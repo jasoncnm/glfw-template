@@ -16,11 +16,18 @@ float LinearizeDepth(float depth)
     return (2.0 * near * far) / (far + near - z * (far - near));	
 }
 
+float logisticDepth(float depth, float steepness, float offset)
+{
+	float zVal = LinearizeDepth(depth);
+	return (1 / (1 + exp(-steepness * (zVal - offset))));
+}
+
 void main()
 {
-    float depth = LinearizeDepth(gl_FragCoord.z) / far;
-    vec4 depth_color = vec4(vec3(depth), 1.0);
-    vec4 texel = texture(texSampler, fragTexCoord);
+	float depth = logisticDepth(gl_FragCoord.z, 0.5f, 5.0f);
 
-    outColor = texel;
+    vec4 texel = texture(texSampler, fragTexCoord);
+	vec4 depth_color = vec4(depth * vec3(0.85f, 0.85f, 0.9f), 1.0f);
+
+    outColor = texel * (1.0f - depth) + depth_color;
 }
