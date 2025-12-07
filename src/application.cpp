@@ -187,28 +187,34 @@ internal void InitRenderData(Application & app)
 {
     {
     Transform tr;
-    tr.m_numCopies = 2;
-    GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
-    tr.m_model = LoadModel(MODEL_PATH1);
         strcpy(tr.m_textureID, TEXTURE_PATH1);
+        strcpy(tr.m_modelID, MODEL_PATH1);
+        
+        tr.m_numCopies = 2;
+    GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
+    tr.m_model = LoadModel(tr.m_modelID);
         app.m_renderData.m_transforms.Add(tr);
     }
     
     {
         Transform tr;
+        strcpy(tr.m_textureID, TEXTURE_PATH2);
+        strcpy(tr.m_modelID, MODEL_PATH2);
+        
         tr.m_numCopies = 1;
         GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
-        tr.m_model = LoadModel(MODEL_PATH2);
-        strcpy(tr.m_textureID, TEXTURE_PATH2);
+        tr.m_model = LoadModel(tr.m_modelID);
         app.m_renderData.m_transforms.Add(tr);
     }
      
     {
         Transform tr;
+        strcpy(tr.m_textureID, TEXTURE_PATH3);
+        strcpy(tr.m_modelID, MODEL_PATH3);
+        
         tr.m_numCopies = 1;
         GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
         tr.m_model = LoadModel(MODEL_PATH3);
-        strcpy(tr.m_textureID, TEXTURE_PATH3);
         app.m_renderData.m_transforms.Add(tr);
     }
     

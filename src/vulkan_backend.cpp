@@ -917,10 +917,10 @@ internal VkCommandPool CreateCommandPool(VkDevice device, VkPhysicalDevice physi
     return pool;
 }
 
-internal Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT>
+internal InFlights<VkCommandBuffer>
 CreateCommandBuffers(VkDevice device, VkCommandPool commandPool)
 {
-    Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> commandBuffers;
+    InFlights<VkCommandBuffer> commandBuffers;
     commandBuffers.Resize(MAX_FRAMES_IN_FLIGHT);
     
     VkCommandBufferAllocateInfo allocInfo = {};
@@ -990,9 +990,9 @@ internal void EndSingleTimeCommands(VkDevice device, VkCommandBuffer commandBuff
 internal SyncObjects
 CreateSyncObjects(VkDevice device)
 {
-    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> imageAvailableSemaphores;
-    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> renderFinishedSemaphores;
-    Array<VkFence, MAX_FRAMES_IN_FLIGHT>     inFlightFences;
+    InFlights<VkSemaphore> imageAvailableSemaphores;
+    InFlights<VkSemaphore> renderFinishedSemaphores;
+    InFlights<VkFence>     inFlightFences;
     
     VkSemaphoreCreateInfo semaphoreInfo = {};
     semaphoreInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -1640,15 +1640,15 @@ internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 textureCo
     
 }
 
-internal Array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT>
+internal InFlights<VkDescriptorSet>
 CreateDescriptorSets(VkDevice device,
-                     Array<VkBuffer, MAX_FRAMES_IN_FLIGHT> uniformBuffers,
+                     InFlights<VkBuffer> uniformBuffers,
                      VkDescriptorPool descriptorPool,
                      VkDescriptorSetLayout descriptorSetLayout,
                      VkImageView textureImageView,
                      VkSampler textureSampler)
 {
-    Array<VkDescriptorSetLayout, MAX_FRAMES_IN_FLIGHT> layouts(MAX_FRAMES_IN_FLIGHT);
+    InFlights<VkDescriptorSetLayout> layouts(MAX_FRAMES_IN_FLIGHT);
     layouts.Fill(descriptorSetLayout);
     
     VkDescriptorSetAllocateInfo allocInfo = {};
@@ -1657,7 +1657,7 @@ CreateDescriptorSets(VkDevice device,
     allocInfo.descriptorSetCount = (uint32)MAX_FRAMES_IN_FLIGHT;
     allocInfo.pSetLayouts = layouts.elements;
     
-    Array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> descriptorSets(MAX_FRAMES_IN_FLIGHT);
+    InFlights<VkDescriptorSet> descriptorSets(MAX_FRAMES_IN_FLIGHT);
     if (vkAllocateDescriptorSets(device, &allocInfo, descriptorSets.elements) != VK_SUCCESS)
     {
         SM_ASSERT(false, "failed to allocate descriptor sets!");
@@ -2243,6 +2243,7 @@ internal void CleanUpVulkan(VulkanContext & context)
     
     for (auto & [id, textureContext] : context.m_textureContexts)
     {
+        SM_TRACE("deleting texture id: %s", id);
         vkDestroyImageView(context.m_device, textureContext.m_textureImageView, nullptr);
         vkDestroyImage(context.m_device, textureContext.m_textureImage, nullptr);
         vkFreeMemory(context.m_device, textureContext.m_textureImageMemory, nullptr);
@@ -2258,10 +2259,11 @@ internal void CleanUpVulkan(VulkanContext & context)
     
     for (auto & [id, modelContext] : context.m_modelContexts)
     {
-    vkDestroyBuffer(context.m_device, modelContext.m_vertexBuffer, nullptr);
+        SM_TRACE("deleting model id: %s", id);
+        vkDestroyBuffer(context.m_device, modelContext.m_vertexBuffer, nullptr);
         vkFreeMemory(context.m_device, modelContext.m_vertexBufferMemory, nullptr);
         vkDestroyBuffer(context.m_device, modelContext.m_indexBuffer, nullptr);
-        vkFreeMemory(context.m_device, modelContext.m_indexBufferMemory, nullptr);
+    vkFreeMemory(context.m_device, modelContext.m_indexBufferMemory, nullptr);
     }
     
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
