@@ -24,4 +24,4 @@ A desktop application template using GLFW and Vulkan
 
 - Multi Model and instances Support
 
-![](captures/cap6.png)
+![](captures/cap7.png)
