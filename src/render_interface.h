@@ -40,7 +40,6 @@ struct Camera
 {
     glm::vec3 m_pos = {};
     glm::vec3 m_forwardDirection = { 0.0f, 1.0f, 0.0f };
-    glm::vec3 m_up = { 0.0f, 0.0f, 1.0f };
     
      real32 m_fovy = 45.0f;
     real32 m_nearClip = 0.1f;
@@ -52,14 +51,17 @@ struct Camera
 
 struct Transform 
 {
-     std::vector<glm::vec3> m_meshPositions;
-    Model m_model;
+    char m_modelID[260];
+    char m_textureID[260];
     uint32 m_numCopies;
+    
+    std::vector<glm::vec3> m_meshPositions;
+    Model m_model;
     };
 
 struct Fog
 {
-    real32 m_viewDistence = 5.0f;
+    real32 m_viewDistence = 50.0f;
     real32 m_steepness = 1.0f;
     glm::vec3 m_fogColor = glm::vec3(1.0f);
 };
@@ -71,7 +73,7 @@ struct RenderData
     Fog m_fog;
     
     // TODO: Current We can only Render one transform. 
-    Transform m_transform;
+    Array<Transform, MAX_TRANSFORM> m_transforms;
     };
 
 #define RENDER_INTERFACE_H

@@ -33,6 +33,9 @@ constexpr int32 MAX_FRAMES_IN_FLIGHT = 2;
 constexpr char * VS_PATH = "src/Shaders/bytecode/triangle_vert.spv";
 constexpr char * FS_PATH = "src/Shaders/bytecode/triangle_frag.spv";
 
+template<typename T> using InFlights = Array<T, MAX_FRAMES_IN_FLIGHT>;
+
+
 /*
 NOTE: APP_SLOW
    1 - No optimization build (DEBUG build)
@@ -78,10 +81,28 @@ struct FragPushConstants
     glm::vec3 m_fogColor;
     real32 m_viewDistence;
     real32 m_steepness;
+};
+
+struct ModelContext
+{
+    VkBuffer                   m_vertexBuffer;
+    VkDeviceMemory             m_vertexBufferMemory;
+    VkBuffer                   m_indexBuffer;
+    VkDeviceMemory             m_indexBufferMemory;
+    };
+
+struct TextureContext
+{
+    uint32 m_mipLevels;
+    VkImage        m_textureImage;
+    VkDeviceMemory m_textureImageMemory;
+    VkImageView    m_textureImageView;
+    InFlights<VkDescriptorSet> m_descriptorSets;
     };
 
 struct VulkanContext
 {
+    
     VkDebugUtilsMessengerEXT   m_debugMessenger;
     
     VkInstance                 m_instance;
@@ -100,37 +121,29 @@ struct VulkanContext
     VkCommandPool              m_commandPool;
     VkDescriptorPool           m_descriptorPool;
     
-    VkImage        m_textureImage;
-    VkDeviceMemory m_textureImageMemory;
-    VkImageView    m_textureImageView;
     VkSampler      m_textureSampler;
+    std::unordered_map<char *, TextureContext> m_textureContexts;
+    std::unordered_map<char *, ModelContext>   m_modelContexts;
     
     VkImage        m_depthImage;
     VkDeviceMemory m_depthImageMemory;
     VkImageView    m_depthImageView;
     
-    VkBuffer                   m_vertexBuffer;
-    VkDeviceMemory             m_vertexBufferMemory;
-    VkBuffer                   m_indexBuffer;
-    VkDeviceMemory             m_indexBufferMemory;
-    
-    Array<VkDescriptorSet, MAX_FRAMES_IN_FLIGHT> m_descriptorSets;
-    Array<VkBuffer,        MAX_FRAMES_IN_FLIGHT> m_uniformBuffers;
-    Array<VkDeviceMemory,  MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMemory;
-    Array<void *,          MAX_FRAMES_IN_FLIGHT> m_uniformBuffersMapped;
-    Array<VkCommandBuffer, MAX_FRAMES_IN_FLIGHT> m_commandBuffers;
-    
     std::vector<VkImage>       m_swapChainImages;
     std::vector<VkImageView>   m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;
     
+    InFlights<VkBuffer> m_uniformBuffers;
+    InFlights<VkDeviceMemory> m_uniformBuffersMemory;
+    InFlights<void *> m_uniformBuffersMapped;
+    InFlights<VkCommandBuffer> m_commandBuffers;
+    
     // NOTE: Synchronization Object
-    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
-    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
-    Array<VkFence, MAX_FRAMES_IN_FLIGHT>     m_inFlightFences;
+    InFlights<VkSemaphore> m_imageAvailableSemaphores;
+    InFlights<VkSemaphore> m_renderFinishedSemaphores;
+    InFlights<VkFence> m_inFlightFences;
     
     uint32 m_currentFrame = 0;
-    uint32 m_mipLevels;
     
      int64 m_shaderTimestamp;
     int64 m_textureTimestamp;

@@ -128,7 +128,18 @@ internal void UpdateImGui(Application & app)
         
         Camera & camera = app.m_renderData.m_camera;
         
-        ImGui::SliderInt("Num mesh instances", (int *)&app.m_renderData.m_transform.m_numCopies, 1, 5000);
+        #if 1
+        for (uint32 i  = 0; i < app.m_renderData.m_transforms.count; i++)
+        {
+            ImGui::PushID(i);
+            Transform & tr = app.m_renderData.m_transforms[i];
+            char text[200];
+            sprintf(text, "Num mesh instances, model: %d", i);
+            ImGui::SliderInt(text, (int *)&tr.m_numCopies, 1, 5000);
+            ImGui::PopID();
+        }
+#endif
+        
         ImGui::SliderFloat("Fog Distence", &app.m_renderData.m_fog.m_viewDistence, 1.0f, 50.0f);
         ImGui::SliderFloat("Fog Steepness", &app.m_renderData.m_fog.m_steepness, 0.0f, 10.0f);
         ImGui::SliderFloat("camera fov", &camera.m_fovy, 10.0f, 100.0f);

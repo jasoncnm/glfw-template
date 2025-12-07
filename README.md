@@ -21,3 +21,7 @@ A desktop application template using GLFW and Vulkan
 - Mipmap generations
 
 ![](captures/cap5.png)
+
+- Multi Model and instances Support
+
+![](captures/cap6.png)

@@ -1607,12 +1607,12 @@ internal VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
     return result;
 }
 
-internal VkDescriptorPool CreateDescriptorPool(VkDevice device)
+internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 textureCount)
 {
     VkDescriptorPoolSize poolSizes[] = 
     {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32)MAX_FRAMES_IN_FLIGHT },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * textureCount },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE }
     };
     
@@ -1943,21 +1943,26 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     scissor.extent = context.m_swapChainExtent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     
-    VkBuffer vertexBuffers[] = { context.m_vertexBuffer };
+    for (uint32 i = 0; i < renderData->m_transforms.count; i++)
+    {
+        Transform & transform = renderData->m_transforms[i];
+        ModelContext & modelContext = context.m_modelContexts[transform.m_modelID];
+        TextureContext & textureContext = context.m_textureContexts[transform.m_textureID];
+        
+    VkBuffer vertexBuffers[] = { modelContext.m_vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
     vkCmdBindVertexBuffers(commandBuffer, 0, 1, vertexBuffers, offsets);
     
-    vkCmdBindIndexBuffer(commandBuffer, context.m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(commandBuffer, modelContext.m_indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+    
     vkCmdBindDescriptorSets(commandBuffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
                             context.m_pipelineLayout,
                             0,
                             1,
-                            &context.m_descriptorSets[context.m_currentFrame],
+                            &textureContext.m_descriptorSets[context.m_currentFrame],
                             0,
                             nullptr);
-    
-    Transform & transform = renderData->m_transform;
     
     FragPushConstants fragConsts = {};
     fragConsts.m_viewDistence = renderData->m_fog.m_viewDistence;
@@ -1981,7 +1986,7 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
                            &meshConstants);
         vkCmdDrawIndexed(commandBuffer, (uint32)transform.m_model.m_indices.size(), 1, 0, 0, 0);
     }
-    
+    }
     ImGui::Render();
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
     
@@ -2031,17 +2036,29 @@ internal void InitVulkan(Application & app)
     context.m_commandPool = CreateCommandPool(context.m_device, context.m_physicalDevice, context.m_surface);
     
     {
-        ImageCreateResult result = CreateTextureImage(context.m_device, 
+        for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
+        {
+            Transform & tr = app.m_renderData.m_transforms[i];
+            if (context.m_textureContexts.find(tr.m_textureID) != context.m_textureContexts.end())
+            {
+                continue;
+            }
+                                        ImageCreateResult result = CreateTextureImage(context.m_device, 
                                                       context.m_physicalDevice, 
                                                       context.m_commandPool, 
                                                       context.m_graphicsQueue, 
-                                                      TEXTURE_PATH3);
-        context.m_textureImage       = result.m_image;
-        context.m_textureImageMemory = result.m_imageMemory;
-        context.m_mipLevels          = result.m_mipLevels;
-    context.m_textureImageView = CreateTextureImageView(context.m_device, context.m_textureImage, context.m_mipLevels);
-    context.m_textureSampler   = CreateTextureSampler(context.m_device, context.m_physicalDevice);
-    }
+                                                          tr.m_textureID);
+            
+            TextureContext texture = {};
+            texture.m_textureImage       = result.m_image;
+            texture.m_textureImageMemory = result.m_imageMemory;
+            texture.m_mipLevels          = result.m_mipLevels;
+            texture.m_textureImageView = CreateTextureImageView(context.m_device, texture.m_textureImage, texture.m_mipLevels);
+            context.m_textureContexts[tr.m_textureID] = texture;
+            }
+        
+        context.m_textureSampler   = CreateTextureSampler(context.m_device, context.m_physicalDevice);
+        }
     
     {
         DepthResourcesCreateResult result = CreateDepthResources(context.m_device, context.m_physicalDevice, context.m_swapChainExtent);
@@ -2053,17 +2070,21 @@ internal void InitVulkan(Application & app)
     
     context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, context.m_swapChainImageViews, context.m_depthImageView, context.m_renderPass, context.m_swapChainExtent);
     
+    for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
     {
-        
-        BufferCreateResult result = CreateAndBindVertexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, app.m_renderData.m_transform.m_model.m_vertices);
-        context.m_vertexBuffer        = result.m_buffer;
-        context.m_vertexBufferMemory  = result.m_bufferMemory;
+        Transform & tr = app.m_renderData.m_transforms[i];
+        ModelContext & modelContext = context.m_modelContexts[tr.m_modelID];
+        {
+        BufferCreateResult result = CreateAndBindVertexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, tr.m_model.m_vertices);
+            modelContext.m_vertexBuffer        = result.m_buffer;
+            modelContext.m_vertexBufferMemory  = result.m_bufferMemory;
     }
     
     {
-        BufferCreateResult result = CreateAndBindIndexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, app.m_renderData.m_transform.m_model.m_indices);
-        context.m_indexBuffer         = result.m_buffer;
-        context.m_indexBufferMemory   = result.m_bufferMemory;
+        BufferCreateResult result = CreateAndBindIndexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, tr.m_model.m_indices);
+            modelContext.m_indexBuffer         = result.m_buffer;
+            modelContext.m_indexBufferMemory   = result.m_bufferMemory;
+    }
     }
     
     {
@@ -2073,13 +2094,19 @@ internal void InitVulkan(Application & app)
         context.m_uniformBuffersMapped = result.m_uniformBuffersMapped;
     }
     
-    context.m_descriptorPool = CreateDescriptorPool(context.m_device);
-    context.m_descriptorSets = CreateDescriptorSets(context.m_device,
+    context.m_descriptorPool = CreateDescriptorPool(context.m_device, (uint32)context.m_textureContexts.size());
+    
+    for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
+    {
+        Transform & tr = app.m_renderData.m_transforms[i];
+        TextureContext & textureContext = context.m_textureContexts[tr.m_textureID];
+        textureContext.m_descriptorSets = CreateDescriptorSets(context.m_device,
                                                 context.m_uniformBuffers,
                                                 context.m_descriptorPool,
                                                 context.m_descriptorSetLayout,
-                                                context.m_textureImageView,
+                                                textureContext.m_textureImageView,
                                                 context.m_textureSampler);
+    }
     
     context.m_commandBuffers = CreateCommandBuffers(context.m_device, context.m_commandPool);
     
@@ -2213,10 +2240,13 @@ internal void CleanUpVulkan(VulkanContext & context)
 {
     CleanupSwapChain(context);
     vkDestroySampler(context.m_device, context.m_textureSampler, nullptr);
-    vkDestroyImageView(context.m_device, context.m_textureImageView, nullptr);
-    vkDestroyImage(context.m_device, context.m_textureImage, nullptr);
-    vkFreeMemory(context.m_device, context.m_textureImageMemory, nullptr);
     
+    for (auto & [id, textureContext] : context.m_textureContexts)
+    {
+        vkDestroyImageView(context.m_device, textureContext.m_textureImageView, nullptr);
+        vkDestroyImage(context.m_device, textureContext.m_textureImage, nullptr);
+        vkFreeMemory(context.m_device, textureContext.m_textureImageMemory, nullptr);
+    }
     for (uint32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         vkDestroyBuffer(context.m_device, context.m_uniformBuffers[i], nullptr);
@@ -2225,10 +2255,15 @@ internal void CleanUpVulkan(VulkanContext & context)
     
     vkDestroyDescriptorPool(context.m_device, context.m_descriptorPool, nullptr);
     vkDestroyDescriptorSetLayout(context.m_device, context.m_descriptorSetLayout, nullptr);
-    vkDestroyBuffer(context.m_device, context.m_vertexBuffer, nullptr);
-    vkFreeMemory(context.m_device, context.m_vertexBufferMemory, nullptr);
-    vkDestroyBuffer(context.m_device, context.m_indexBuffer, nullptr);
-    vkFreeMemory(context.m_device, context.m_indexBufferMemory, nullptr);
+    
+    for (auto & [id, modelContext] : context.m_modelContexts)
+    {
+    vkDestroyBuffer(context.m_device, modelContext.m_vertexBuffer, nullptr);
+        vkFreeMemory(context.m_device, modelContext.m_vertexBufferMemory, nullptr);
+        vkDestroyBuffer(context.m_device, modelContext.m_indexBuffer, nullptr);
+        vkFreeMemory(context.m_device, modelContext.m_indexBufferMemory, nullptr);
+    }
+    
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         vkDestroySemaphore(context.m_device, context.m_imageAvailableSemaphores[i], nullptr);

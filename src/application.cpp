@@ -21,15 +21,16 @@
 
 /*
 TODO: Things that I can do
-- Material System
+- Current We can only Render one transform. 
+- Multisampling
+    - Material System
 - Normal mapping
 - Skybox rendering
 - Add lighting
 - PBR
   - hierarchical model
 - Ambient occulsion
-- Current We can only Render one transform. 
-    - Draw shader arts
+- Draw shader arts
 - Support passing multiple textures to fragment shader
 - Impliment custom hash map without using std::hash and std::unordered_map
    - Impliment custom arena allocator for vulkan object allocations
@@ -184,19 +185,39 @@ internal void GeneratePositions(std::vector<glm::vec3> & meshPositions, uint32 c
 
 internal void InitRenderData(Application & app)
 {
-    
+    {
     Transform tr;
-    tr.m_numCopies = 1000;
+    tr.m_numCopies = 2;
     GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
+    tr.m_model = LoadModel(MODEL_PATH1);
+        strcpy(tr.m_textureID, TEXTURE_PATH1);
+        app.m_renderData.m_transforms.Add(tr);
+    }
     
-    tr.m_model = LoadModel(MODEL_PATH3);
+    {
+        Transform tr;
+        tr.m_numCopies = 1;
+        GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
+        tr.m_model = LoadModel(MODEL_PATH2);
+        strcpy(tr.m_textureID, TEXTURE_PATH2);
+        app.m_renderData.m_transforms.Add(tr);
+    }
+     
+    {
+        Transform tr;
+        tr.m_numCopies = 1;
+        GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
+        tr.m_model = LoadModel(MODEL_PATH3);
+        strcpy(tr.m_textureID, TEXTURE_PATH3);
+        app.m_renderData.m_transforms.Add(tr);
+    }
     
-    app.m_renderData.m_transform = tr;
     app.m_renderData.m_camera = {};
     app.m_renderData.m_camera.m_pos = { 6.78f, 3.88f, 3.66f };
     app.m_renderData.m_camera.m_pitch = -37;
     app.m_renderData.m_camera.m_yaw = -112;
-    app.m_renderData.m_clearColor = glm::vec4(HexToRGB(0x142A9C), 1.0f);
+    app.m_renderData.m_clearColor = glm::vec4(HexToRGB(0x0B1652), 1.0f);
+    app.m_renderData.m_fog.m_fogColor = HexToRGB(0x0B1652);
 }
 
 internal void FramebufferResizeCallback(GLFWwindow  * window, int32 width, int32 height)
@@ -359,7 +380,6 @@ internal void Update(Application & app, float dt)
     
     glm::vec3 forward = camera.m_forwardDirection;
     glm::vec3 right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
-    glm::vec3 up      = camera.m_up;
     
     if (!app.m_editingImgui && MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
     {
@@ -405,7 +425,7 @@ internal void Update(Application & app, float dt)
     
     forward = camera.m_forwardDirection;
     right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
-    up      = glm::cross(right, forward);
+    glm::vec3 up = glm::cross(right, forward);
     
     if (!app.m_editingImgui)
     {
@@ -445,15 +465,17 @@ internal void Update(Application & app, float dt)
         camera.m_pos += glm::normalize(moveDir) * cameraMoveSpeed * dt;
     }
     
-    camera.m_up = up;
     
 }
 
 internal void FixedUpdate(Application & app)
 {
-    Transform & tr = app.m_renderData.m_transform;
+    for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
+    {
+        Transform & tr = app.m_renderData.m_transforms[i];
     if (tr.m_meshPositions.size() != tr.m_numCopies)
         GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
+    }
 }
 
 internal void Init(Application & app)
