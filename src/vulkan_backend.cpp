@@ -1,6 +1,23 @@
 #include "render_interface.h"
 #include "vulkan_backend.h"
 
+internal VkSampleCountFlagBits GetMaxUsableSampleCount(VkPhysicalDevice physicalDevice)
+{
+    VkPhysicalDeviceProperties physicalDeviceProperties;
+    vkGetPhysicalDeviceProperties(physicalDevice, &physicalDeviceProperties);
+    
+    VkSampleCountFlags counts = physicalDeviceProperties.limits.framebufferColorSampleCounts & physicalDeviceProperties.limits.framebufferDepthSampleCounts;
+    
+    if (counts & VK_SAMPLE_COUNT_64_BIT) return VK_SAMPLE_COUNT_64_BIT;
+    if (counts & VK_SAMPLE_COUNT_32_BIT) return VK_SAMPLE_COUNT_32_BIT;
+    if (counts & VK_SAMPLE_COUNT_16_BIT) return VK_SAMPLE_COUNT_16_BIT;
+    if (counts & VK_SAMPLE_COUNT_8_BIT) return VK_SAMPLE_COUNT_8_BIT;
+    if (counts & VK_SAMPLE_COUNT_4_BIT) return VK_SAMPLE_COUNT_4_BIT;
+    if (counts & VK_SAMPLE_COUNT_2_BIT) return VK_SAMPLE_COUNT_2_BIT;
+    
+    return VK_SAMPLE_COUNT_1_BIT;
+    }
+
 internal VkVertexInputBindingDescription GetVertexBindingDescription()
 {
     VkVertexInputBindingDescription bindingDescription = {};
@@ -394,6 +411,7 @@ internal VkDevice CreateLogicalDevice(VkPhysicalDevice physicalDevice, VkSurface
     
     VkPhysicalDeviceFeatures deviceFeatures{};
     deviceFeatures.samplerAnisotropy = VK_TRUE;
+    deviceFeatures.sampleRateShading = VK_TRUE; // enable sample shading feature for the device
     
     VkDeviceCreateInfo createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
@@ -612,7 +630,7 @@ internal VkShaderModule CreateShaderModule(VkDevice device, std::vector<char> & 
   ==================================================================
 */
 internal CreateGraphicsPipelineResult
-CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass, VkDescriptorSetLayout descriptorSetLayout)
+CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass renderPass, VkDescriptorSetLayout descriptorSetLayout, VkSampleCountFlagBits msaaSamples)
 {
     // NOTE: This is null terminated
     std::vector<char> vertShaderCode = read_file(VS_PATH);
@@ -697,9 +715,9 @@ CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     // NOTE: MultiSampling
     VkPipelineMultisampleStateCreateInfo multiSampling = {};
     multiSampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multiSampling.sampleShadingEnable = VK_FALSE;
-    multiSampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multiSampling.minSampleShading = 1.0f; // Optional
+    multiSampling.sampleShadingEnable = VK_TRUE; // enable sample shading in the pipeline
+    multiSampling.minSampleShading = .2f; // min fraction for sample shading; closer to one is smooth
+    multiSampling.rasterizationSamples = msaaSamples;
     multiSampling.pSampleMask = nullptr; // Optional
     multiSampling.alphaToCoverageEnable = VK_FALSE; // Optional
     multiSampling.alphaToOneEnable = VK_FALSE; // Optional
@@ -803,11 +821,11 @@ CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     return result;
 }
 
-internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physicalDevice, VkFormat imageFormat)
+internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physicalDevice, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples)
 {
     VkAttachmentDescription depthAttachment{};
     depthAttachment.format = FindDepthFormat(physicalDevice);
-    depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    depthAttachment.samples = msaaSamples;
     depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
@@ -817,14 +835,29 @@ internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physica
     
     
     VkAttachmentDescription colorAttachment = {};
-    colorAttachment.format = imageFormat;
-    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.format = swapChainImageFormat;
+    colorAttachment.samples = msaaSamples;
     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
+    VkAttachmentDescription colorAttachmentResolve = {};
+    colorAttachmentResolve.format  = swapChainImageFormat;
+    colorAttachmentResolve.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachmentResolve.loadOp  = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachmentResolve.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    
+    VkAttachmentReference colorAttachmentResolveRef = {};
+    colorAttachmentResolveRef.attachment = 2;
+    colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
     
     VkAttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
@@ -839,16 +872,17 @@ internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physica
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
+    subpass.pResolveAttachments = &colorAttachmentResolveRef;
     
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
     dependency.dstSubpass = 0;
     dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
-    dependency.srcAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT | VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
     dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT | VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
     
-    VkAttachmentDescription attachments[] = { colorAttachment, depthAttachment };
+    VkAttachmentDescription attachments[] = { colorAttachment, depthAttachment, colorAttachmentResolve };
     VkRenderPassCreateInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     renderPassInfo.attachmentCount = ArrayCount(attachments);
@@ -870,16 +904,17 @@ internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physica
 
 internal std::vector<VkFramebuffer>
 CreateFramebuffers(VkDevice device,
-                   std::vector<VkImageView> & imageViews,
+                   std::vector<VkImageView> & swapChainImageViews,
                    VkImageView depthImageView,
+                   VkImageView colorImageView,
                    VkRenderPass renderPass,
                    VkExtent2D extent)
 {
-    std::vector<VkFramebuffer> framebuffers(imageViews.size());
+    std::vector<VkFramebuffer> framebuffers(swapChainImageViews.size());
     
-    for (int i = 0; i < imageViews.size(); i++)
+    for (int i = 0; i < swapChainImageViews.size(); i++)
     {
-        VkImageView attachments[] = { imageViews[i], depthImageView };
+        VkImageView attachments[] = { colorImageView, depthImageView, swapChainImageViews[i]  };
         
         VkFramebufferCreateInfo framebufferInfo = {};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1027,6 +1062,10 @@ CreateSyncObjects(VkDevice device)
 
 internal void CleanupSwapChain(VulkanContext & context)
 {
+    vkDestroyImageView(context.m_device, context.m_colorImageView, nullptr);
+    vkDestroyImage(context.m_device, context.m_colorImage, nullptr);
+    vkFreeMemory(context.m_device, context.m_colorImageMemory, nullptr);
+    
     vkDestroyImageView(context.m_device, context.m_depthImageView, nullptr);
     vkDestroyImage(context.m_device, context.m_depthImage, nullptr);
     vkFreeMemory(context.m_device, context.m_depthImageMemory, nullptr);
@@ -1160,6 +1199,7 @@ internal ImageCreateResult CreateImage(VkDevice device,
                                        uint32 width,
                                        uint32 height,
                                        uint32 mipLevels,
+                                       VkSampleCountFlagBits numSamples,
                                        VkFormat format,
                                        VkImageTiling tiling,
                                        VkImageUsageFlags usage,
@@ -1179,7 +1219,7 @@ internal ImageCreateResult CreateImage(VkDevice device,
     imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     imageInfo.usage = usage; 
     imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    imageInfo.samples = VK_SAMPLE_COUNT_1_BIT;
+    imageInfo.samples = numSamples;
     imageInfo.flags = 0; // Optional
     
     VkImage image = {};
@@ -1209,6 +1249,35 @@ internal ImageCreateResult CreateImage(VkDevice device,
     
     return result;
 }
+
+
+
+internal ImageResources CreateColorResources(VkDevice device, 
+                                   VkPhysicalDevice physicalDevice, 
+                                   VkFormat swapChainImageFormat, 
+                                   VkExtent2D swapChainExtent,
+                                    VkSampleCountFlagBits msaaSamples)
+{
+    VkFormat colorFormat = swapChainImageFormat;
+    
+    ImageCreateResult imageResult = CreateImage(device,
+                                                physicalDevice,
+                                                swapChainExtent.width,
+                                                swapChainExtent.height,
+                                                1,
+                                                msaaSamples,
+                                                colorFormat,
+                                                VK_IMAGE_TILING_OPTIMAL,
+                                                VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    VkImageView colorImageView = CreateImageView(device, imageResult.m_image, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    
+    ImageResources resources = { imageResult, colorImageView };
+    
+     return resources;
+}
+
 
 internal void TransitionImageLayout(VkDevice device,
                                     VkCommandPool commandPool,
@@ -1394,6 +1463,7 @@ CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPo
                                                        (uint32)x,
                                                        (uint32)y,
                                                        mipLevels,
+                                                       VK_SAMPLE_COUNT_1_BIT,
                                                        VK_FORMAT_R8G8B8A8_SRGB,
                                                        VK_IMAGE_TILING_OPTIMAL,
                                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
@@ -1463,22 +1533,24 @@ internal VkSampler CreateTextureSampler(VkDevice device, VkPhysicalDevice physic
     return sampler;
 }
 
-internal DepthResourcesCreateResult CreateDepthResources(VkDevice device, VkPhysicalDevice physicalDevice, VkExtent2D extent)
+internal ImageResources CreateDepthResources(VkDevice device, VkPhysicalDevice physicalDevice, VkExtent2D extent, VkSampleCountFlagBits msaaSamples)
 {
     VkFormat depthFormat = FindDepthFormat(physicalDevice);
     
-    ImageCreateResult depthImageResult = CreateImage(device, physicalDevice, extent.width, extent.height, 1, depthFormat,
+    ImageCreateResult depthImageResult = CreateImage(device, physicalDevice, extent.width, extent.height, 1, 
+                                                     msaaSamples, 
+                                                     depthFormat,
                                                      VK_IMAGE_TILING_OPTIMAL,
                                                      VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
                                                      VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     
     VkImageView depthImageView = CreateImageView(device, depthImageResult.m_image, depthFormat, VK_IMAGE_ASPECT_DEPTH_BIT, 1);
     
-    DepthResourcesCreateResult result = {};
-    result.m_depthImageResult = depthImageResult;
-    result.m_depthImageView = depthImageView;
+     ImageResources resources = {};
+    resources.m_imageResult = depthImageResult;
+    resources.m_imageView = depthImageView;
     
-    return result;
+    return resources;
 }
 
 internal BufferCreateResult
@@ -1607,12 +1679,13 @@ internal VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
     return result;
 }
 
+// NOTE: Do you need to feeds in texture count into the pool size?
 internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 textureCount)
 {
     VkDescriptorPoolSize poolSizes[] = 
     {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32)MAX_FRAMES_IN_FLIGHT },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * textureCount },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE }
     };
     
@@ -1863,15 +1936,35 @@ internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
     
     
     {
-        DepthResourcesCreateResult result = CreateDepthResources(context.m_device, context.m_physicalDevice, context.m_swapChainExtent);
+        ImageResources resources = CreateColorResources(context.m_device, 
+                                                        context.m_physicalDevice, 
+                                                        context.m_swapChainImageFormat,
+                                                        context.m_swapChainExtent,
+                                                        context.m_msaaSamples);
         
-        context.m_depthImage       = result.m_depthImageResult.m_image;
-        context.m_depthImageMemory = result.m_depthImageResult.m_imageMemory;
-        context.m_depthImageView   = result.m_depthImageView;
+        context.m_colorImage = resources.m_imageResult.m_image;
+        context.m_colorImageMemory = resources.m_imageResult.m_imageMemory;
+        context.m_colorImageView = resources.m_imageView;
+    }
+    
+    {
+        ImageResources result = CreateDepthResources(context.m_device,
+                                                     context.m_physicalDevice, 
+                                                     context.m_swapChainExtent, 
+                                                     context.m_msaaSamples);
+        
+        context.m_depthImage       = result.m_imageResult.m_image;
+        context.m_depthImageMemory = result.m_imageResult.m_imageMemory;
+        context.m_depthImageView   = result.m_imageView;
     }
     
     
-    context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, context.m_swapChainImageViews, context.m_depthImageView, context.m_renderPass, context.m_swapChainExtent);
+    context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, 
+                                                         context.m_swapChainImageViews, 
+                                                         context.m_depthImageView,
+                                                         context.m_colorImageView, 
+                                                         context.m_renderPass,
+                                                         context.m_swapChainExtent);
 }
 
 internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderData)
@@ -2002,11 +2095,12 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
 Model LoadModel();
 internal void InitVulkan(Application & app)
 {
-    VulkanContext & context = app.m_renderContext;
+    VulkanContext & context  = app.m_renderContext;
     context.m_instance       = CreateVkInstance();
     context.m_debugMessenger = SetupDebugMessenger(context.m_instance);
     context.m_surface        = CreateSurface(app.m_window, context.m_instance);
     context.m_physicalDevice = PickPhysicalDevice(context.m_instance, context.m_surface);
+    context.m_msaaSamples    = GetMaxUsableSampleCount(context.m_physicalDevice);
     context.m_device         = CreateLogicalDevice(context.m_physicalDevice, context.m_surface);
     context.m_graphicsQueue  = CreateGraphicsQueue(context.m_device, context.m_physicalDevice, context.m_surface);
     context.m_presentQueue   = CreatePresentQueue(context.m_device, context.m_physicalDevice, context.m_surface);
@@ -2022,12 +2116,12 @@ internal void InitVulkan(Application & app)
     }
     
     context.m_swapChainImageViews = CreateImageViews(context.m_swapChainImages, context.m_device, context.m_swapChainImageFormat);
-    context.m_renderPass          = CreateRenderPass(context.m_device, context.m_physicalDevice, context.m_swapChainImageFormat);
+    context.m_renderPass          = CreateRenderPass(context.m_device, context.m_physicalDevice, context.m_swapChainImageFormat, context.m_msaaSamples);
     context.m_descriptorSetLayout = CreateDescriptorSetLayout(context.m_device);
     
     {
         CreateGraphicsPipelineResult result =
-            CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout);
+            CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout, context.m_msaaSamples);
         
         context.m_pipelineLayout  = result.m_pipelineLayout;
         context.m_graphicsPipeline = result.m_graphicsPipeline;
@@ -2043,6 +2137,7 @@ internal void InitVulkan(Application & app)
             {
                 continue;
             }
+            
                                         ImageCreateResult result = CreateTextureImage(context.m_device, 
                                                       context.m_physicalDevice, 
                                                       context.m_commandPool, 
@@ -2061,14 +2156,34 @@ internal void InitVulkan(Application & app)
         }
     
     {
-        DepthResourcesCreateResult result = CreateDepthResources(context.m_device, context.m_physicalDevice, context.m_swapChainExtent);
+        ImageResources result = CreateDepthResources(context.m_device,
+                                                     context.m_physicalDevice, 
+                                                     context.m_swapChainExtent, 
+                                                     context.m_msaaSamples);
         
-        context.m_depthImage       = result.m_depthImageResult.m_image;
-        context.m_depthImageMemory = result.m_depthImageResult.m_imageMemory;
-        context.m_depthImageView   = result.m_depthImageView;
+        context.m_depthImage       = result.m_imageResult.m_image;
+        context.m_depthImageMemory = result.m_imageResult.m_imageMemory;
+        context.m_depthImageView   = result.m_imageView;
     }
     
-    context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, context.m_swapChainImageViews, context.m_depthImageView, context.m_renderPass, context.m_swapChainExtent);
+    {
+        ImageResources resources = CreateColorResources(context.m_device, 
+                                                        context.m_physicalDevice, 
+                                                        context.m_swapChainImageFormat,
+                                                        context.m_swapChainExtent,
+                                                        context.m_msaaSamples);
+        
+        context.m_colorImage = resources.m_imageResult.m_image;
+        context.m_colorImageMemory = resources.m_imageResult.m_imageMemory;
+        context.m_colorImageView = resources.m_imageView;
+                                                        }
+    
+    context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, 
+                                                         context.m_swapChainImageViews,
+                                                         context.m_depthImageView,
+                                                         context.m_colorImageView, 
+                                                         context.m_renderPass,
+                                                         context.m_swapChainExtent);
     
     for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
     {
@@ -2095,7 +2210,6 @@ internal void InitVulkan(Application & app)
     }
     
     context.m_descriptorPool = CreateDescriptorPool(context.m_device, (uint32)context.m_textureContexts.size());
-    
     for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
     {
         Transform & tr = app.m_renderData.m_transforms[i];
@@ -2130,7 +2244,7 @@ internal void RecreateGrahpicsPipeline(VulkanContext & context)
     vkDestroyPipelineLayout(context.m_device, context.m_pipelineLayout, nullptr);
     
     CreateGraphicsPipelineResult result =
-        CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout);
+        CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout, context.m_msaaSamples);
     
     context.m_pipelineLayout  = result.m_pipelineLayout;
     context.m_graphicsPipeline = result.m_graphicsPipeline;
@@ -2238,9 +2352,10 @@ internal void DrawFrame(Application & app, RenderData * renderData)
 
 internal void CleanUpVulkan(VulkanContext & context)
 {
+    
+    
     CleanupSwapChain(context);
     vkDestroySampler(context.m_device, context.m_textureSampler, nullptr);
-    
     for (auto & [id, textureContext] : context.m_textureContexts)
     {
         SM_TRACE("deleting texture id: %s", id);

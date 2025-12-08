@@ -19,9 +19,12 @@
 
 #include <glm/gtx/quaternion.hpp>
 
+#include "imgui_setup.cpp"
+#include "vulkan_backend.cpp"
+
 /*
 TODO: Things that I can do
-- Current We can only Render one transform. 
+- Instanced rendering
 - Multisampling
     - Material System
 - Normal mapping
@@ -31,16 +34,19 @@ TODO: Things that I can do
   - hierarchical model
 - Ambient occulsion
 - Draw shader arts
-- Support passing multiple textures to fragment shader
-- Impliment custom hash map without using std::hash and std::unordered_map
+       - Impliment custom hash map without using std::hash and std::unordered_map
    - Impliment custom arena allocator for vulkan object allocations
+- Dynamic uniforms
+- Separate images and sampler descriptors
+- Pipeline cache
+- Multi-threaded command buffer generation
+- Multiple subpasses
+- Compute shaders
   */
 
 //====================================================
 //      NOTE: Application Functions
 //====================================================
-#include "imgui_setup.cpp"
-#include "vulkan_backend.cpp"
 
 internal glm::vec3 HexToRGB(uint32 val)
 {
@@ -219,11 +225,11 @@ internal void InitRenderData(Application & app)
     }
     
     app.m_renderData.m_camera = {};
-    app.m_renderData.m_camera.m_pos = { 6.78f, 3.88f, 3.66f };
-    app.m_renderData.m_camera.m_pitch = -37;
-    app.m_renderData.m_camera.m_yaw = -112;
-    app.m_renderData.m_clearColor = glm::vec4(HexToRGB(0x0B1652), 1.0f);
-    app.m_renderData.m_fog.m_fogColor = HexToRGB(0x0B1652);
+    app.m_renderData.m_camera.m_pos = { 26.0f, 17.0f, 20.0f };
+    app.m_renderData.m_camera.m_pitch = -36;
+    app.m_renderData.m_camera.m_yaw = -120;
+    app.m_renderData.m_clearColor = glm::vec4(HexToRGB(0x22338D), 1.0f);
+    app.m_renderData.m_fog.m_fogColor = HexToRGB(0x22338D);
 }
 
 internal void FramebufferResizeCallback(GLFWwindow  * window, int32 width, int32 height)

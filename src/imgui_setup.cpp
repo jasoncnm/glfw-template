@@ -58,7 +58,7 @@ internal void InitImGui(Application & app)
     init_info.Allocator = VK_NULL_HANDLE;
     init_info.PipelineInfoMain.RenderPass = app.m_renderContext.m_renderPass;
     init_info.PipelineInfoMain.Subpass = 0;
-    init_info.PipelineInfoMain.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    init_info.PipelineInfoMain.MSAASamples = app.m_renderContext.m_msaaSamples;
 
     init_info.CheckVkResultFn =
         [](VkResult result)

@@ -129,6 +129,10 @@ struct VulkanContext
     VkDeviceMemory m_depthImageMemory;
     VkImageView    m_depthImageView;
     
+    VkImage        m_colorImage;
+    VkDeviceMemory m_colorImageMemory;
+    VkImageView    m_colorImageView;
+    
     std::vector<VkImage>       m_swapChainImages;
     std::vector<VkImageView>   m_swapChainImageViews;
     std::vector<VkFramebuffer> m_swapChainFramebuffers;
@@ -142,6 +146,8 @@ struct VulkanContext
     InFlights<VkSemaphore> m_imageAvailableSemaphores;
     InFlights<VkSemaphore> m_renderFinishedSemaphores;
     InFlights<VkFence> m_inFlightFences;
+    
+    VkSampleCountFlagBits m_msaaSamples = VK_SAMPLE_COUNT_1_BIT;
     
     uint32 m_currentFrame = 0;
     
@@ -209,10 +215,10 @@ struct ImageCreateResult
     uint32         m_mipLevels;
 };
 
-struct DepthResourcesCreateResult
+struct ImageResources
 {
-    ImageCreateResult m_depthImageResult;
-    VkImageView    m_depthImageView;
+    ImageCreateResult m_imageResult;
+    VkImageView    m_imageView;
 };
 
 struct UniformBufferCreateResult
