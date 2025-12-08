@@ -121,6 +121,8 @@ struct VulkanContext
     VkCommandPool              m_commandPool;
     VkDescriptorPool           m_descriptorPool;
     
+    VkDescriptorSet m_imguiDset;
+    
     VkSampler      m_textureSampler;
     std::unordered_map<char *, TextureContext> m_textureContexts;
     std::unordered_map<char *, ModelContext>   m_modelContexts;
@@ -154,6 +156,13 @@ struct VulkanContext
      int64 m_shaderTimestamp;
     int64 m_textureTimestamp;
     int64 m_modelTimestamp;
+    
+    VkRenderPass m_imGuiRenderPass;
+    std::vector<VkFramebuffer> m_imGuiFramebuffers;
+    VkCommandPool              m_imGuiCommandPool;
+    InFlights<VkCommandBuffer> m_imGuiCommandBuffers;
+    VkDescriptorPool           m_imGuiDescriptorPool;
+    
     
 };
 

@@ -68,6 +68,7 @@ struct Fog
 
 struct RenderData 
 {
+    IRect m_renderWindowRect;
     glm::vec4 m_clearColor;
     Camera m_camera;
     Fog m_fog;

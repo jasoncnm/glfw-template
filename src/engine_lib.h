@@ -553,6 +553,12 @@ struct IVec2
     }
 };
 
+struct IRect
+{
+    IVec2 position;
+    IVec2 extent;
+};
+
 
 float max(float a, float b)
 {

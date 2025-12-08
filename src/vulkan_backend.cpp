@@ -902,6 +902,89 @@ internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physica
     
 }
 
+
+internal VkRenderPass CreateImGuiRenderPass(VkDevice device, VkPhysicalDevice physicalDevice, VkFormat swapChainImageFormat)
+{
+    
+    VkAttachmentDescription colorAttachment = {};
+    colorAttachment.format = swapChainImageFormat;
+    colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+    
+    VkAttachmentReference colorAttachmentRef = {};
+    colorAttachmentRef.attachment = 0;
+    colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
+    VkSubpassDescription subpass = {};
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.colorAttachmentCount = 1;
+    subpass.pColorAttachments = &colorAttachmentRef;
+    
+    VkSubpassDependency dependency = {};
+    dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass = 0;
+    dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    
+    VkAttachmentDescription attachments[] = { colorAttachment };
+    VkRenderPassCreateInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    renderPassInfo.attachmentCount = ArrayCount(attachments);
+    renderPassInfo.pAttachments = attachments;
+    renderPassInfo.subpassCount = 1;
+    renderPassInfo.pSubpasses = &subpass;
+    renderPassInfo.dependencyCount = 1;
+    renderPassInfo.pDependencies = &dependency;
+    
+    VkRenderPass renderPass;
+    if (vkCreateRenderPass(device, &renderPassInfo, nullptr, &renderPass) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create render pass");
+    }
+    
+    return renderPass;
+    
+}
+
+
+internal std::vector<VkFramebuffer>
+CreateFramebuffers(VkDevice device,
+                   std::vector<VkImageView> & swapChainImageViews,
+                   VkRenderPass renderPass,
+                   VkExtent2D extent)
+{
+    std::vector<VkFramebuffer> framebuffers(swapChainImageViews.size());
+    
+    for (int i = 0; i < swapChainImageViews.size(); i++)
+    {
+        VkImageView attachments[] = { swapChainImageViews[i]  };
+        
+        VkFramebufferCreateInfo framebufferInfo = {};
+        framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebufferInfo.renderPass = renderPass;
+        framebufferInfo.attachmentCount = ArrayCount(attachments);
+        framebufferInfo.pAttachments = attachments;
+        framebufferInfo.width = extent.width;
+        framebufferInfo.height = extent.height;
+        framebufferInfo.layers = 1;
+        
+        if (vkCreateFramebuffer(device, &framebufferInfo, nullptr, &framebuffers[i]) != VK_SUCCESS)
+        {
+            SM_ASSERT(false, "failed to create frame buffer!");
+        }
+        
+    }
+    return framebuffers;
+    
+}
+
 internal std::vector<VkFramebuffer>
 CreateFramebuffers(VkDevice device,
                    std::vector<VkImageView> & swapChainImageViews,
@@ -1073,6 +1156,7 @@ internal void CleanupSwapChain(VulkanContext & context)
     for (uint32 i = 0; i < context.m_swapChainFramebuffers.size(); i++)
     {
         vkDestroyFramebuffer(context.m_device, context.m_swapChainFramebuffers[i], nullptr);
+        vkDestroyFramebuffer(context.m_device, context.m_imGuiFramebuffers[i], nullptr);
     }
     
     for (uint32 i = 0; i < context.m_swapChainImageViews.size(); i++)
@@ -1679,15 +1763,40 @@ internal VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
     return result;
 }
 
+
+internal VkDescriptorPool CreateImGuiDescriptorPool(VkDevice device)
+{
+    VkDescriptorPoolSize pool_sizes[] =
+    {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE },
+    };
+    VkDescriptorPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
+    pool_info.maxSets = 0;
+    for (VkDescriptorPoolSize& pool_size : pool_sizes)
+        pool_info.maxSets += pool_size.descriptorCount;
+    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
+    pool_info.pPoolSizes = pool_sizes;
+    
+    VkDescriptorPool result = {};
+    if (vkCreateDescriptorPool(device, &pool_info, nullptr, &result) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to create descirptor pool");
+    }
+    
+    return result;
+}
+
+
 // NOTE: Do you need to feeds in texture count into the pool size?
 internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 textureCount)
 {
     VkDescriptorPoolSize poolSizes[] = 
     {
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32)MAX_FRAMES_IN_FLIGHT },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE }
-    };
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * textureCount },
+        };
     
     VkDescriptorPoolCreateInfo poolInfo = {};
     poolInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
@@ -1959,6 +2068,11 @@ internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
     }
     
     
+    context.m_imGuiFramebuffers = CreateFramebuffers(context.m_device,
+                                                     context.m_swapChainImageViews,
+                                                     context.m_imGuiRenderPass,
+                                                     context.m_swapChainExtent);
+    
     context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, 
                                                          context.m_swapChainImageViews, 
                                                          context.m_depthImageView,
@@ -2080,7 +2194,39 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
         vkCmdDrawIndexed(commandBuffer, (uint32)transform.m_model.m_indices.size(), 1, 0, 0, 0);
     }
     }
-    ImGui::Render();
+    
+    vkCmdEndRenderPass(commandBuffer);
+    
+    if (vkEndCommandBuffer(commandBuffer) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to record command buffer!");
+    }
+}
+
+internal
+void RecordImGuiCommandBuffer(VulkanContext & context, uint32 imageIndex)
+{
+    VkCommandBuffer & commandBuffer = context.m_imGuiCommandBuffers[context.m_currentFrame];
+    
+    VkCommandBufferBeginInfo beginInfo = {};
+    beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+    beginInfo.flags = 0;
+    beginInfo.pInheritanceInfo = nullptr;
+    
+    if (vkBeginCommandBuffer(commandBuffer, &beginInfo) != VK_SUCCESS)
+    {
+        SM_ASSERT(false, "failed to begine recording command buffer!");
+    }
+    
+    VkRenderPassBeginInfo renderPassInfo = {};
+    renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+    renderPassInfo.renderPass = context.m_imGuiRenderPass;
+    renderPassInfo.framebuffer = context.m_imGuiFramebuffers[imageIndex];
+    renderPassInfo.renderArea.offset = { 0, 0 };
+    renderPassInfo.renderArea.extent = context.m_swapChainExtent;
+    
+    vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+    
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), commandBuffer);
     
     vkCmdEndRenderPass(commandBuffer);
@@ -2092,7 +2238,6 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
 }
 
 
-Model LoadModel();
 internal void InitVulkan(Application & app)
 {
     VulkanContext & context  = app.m_renderContext;
@@ -2234,7 +2379,17 @@ internal void InitVulkan(Application & app)
     int64 timestampVS = GetTimestamp(VS_PATH);
     int64 timestampFS = GetTimestamp(FS_PATH);
     context.m_shaderTimestamp = max(timestampVS, timestampFS);
-}
+    
+    
+    context.m_imGuiRenderPass = CreateImGuiRenderPass(context.m_device, context.m_physicalDevice, context.m_swapChainImageFormat);
+    
+    
+    context.m_imGuiFramebuffers = CreateFramebuffers(context.m_device, context.m_swapChainImageViews, context.m_imGuiRenderPass, context.m_swapChainExtent);
+    
+    context.m_imGuiCommandPool = CreateCommandPool(context.m_device, context.m_physicalDevice, context.m_surface);
+    context.m_imGuiCommandBuffers = CreateCommandBuffers(context.m_device, context.m_commandPool);
+    context.m_imGuiDescriptorPool = CreateImGuiDescriptorPool(context.m_device);
+    }
 
 internal void RecreateGrahpicsPipeline(VulkanContext & context)
 {
@@ -2288,17 +2443,17 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     vkResetFences(context.m_device, 1, &context.m_inFlightFences[context.m_currentFrame]);
     
     vkResetCommandBuffer(context.m_commandBuffers[context.m_currentFrame], 0);
+    vkResetCommandBuffer(context.m_imGuiCommandBuffers[context.m_currentFrame], 0);
     
     RecordCommandBuffer(context, renderData, imageIndex);
+    RecordImGuiCommandBuffer(context, imageIndex);
     UpdateUniformBuffer(context, renderData);
     
-    // Update and Render additional Platform Windows
-    if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-    {
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
-    }
-    
+    VkCommandBuffer submitCommandBuffers[] =
+    { 
+        context.m_commandBuffers[context.m_currentFrame],
+        context.m_imGuiCommandBuffers[context.m_currentFrame] 
+    };
     
     VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
@@ -2307,8 +2462,8 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     submitInfo.waitSemaphoreCount = ArrayCount(waitSemaphores);
     submitInfo.pWaitSemaphores = waitSemaphores;
     submitInfo.pWaitDstStageMask = waitStages;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &context.m_commandBuffers[context.m_currentFrame];
+    submitInfo.commandBufferCount = ArrayCount(submitCommandBuffers);
+    submitInfo.pCommandBuffers = submitCommandBuffers;
     
     VkSemaphore signalSemaphores[] = { context.m_renderFinishedSemaphores[context.m_currentFrame] };
     submitInfo.signalSemaphoreCount = ArrayCount(signalSemaphores);
@@ -2318,8 +2473,6 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     {
         SM_ASSERT(false, "failed to submit draw command buffer!");
     }
-    
-    
     
     VkPresentInfoKHR presentInfo = {};
     presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -2331,8 +2484,6 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     presentInfo.pSwapchains = swapChains;
     presentInfo.pImageIndices = &imageIndex;
     presentInfo.pResults = nullptr; // Optional
-    
-    
     
     result = vkQueuePresentKHR(context.m_presentQueue, &presentInfo);
     
@@ -2352,9 +2503,12 @@ internal void DrawFrame(Application & app, RenderData * renderData)
 
 internal void CleanUpVulkan(VulkanContext & context)
 {
-    
-    
     CleanupSwapChain(context);
+    
+    vkDestroyRenderPass(context.m_device, context.m_imGuiRenderPass, nullptr);
+    vkDestroyCommandPool(context.m_device, context.m_imGuiCommandPool, nullptr);
+    vkDestroyDescriptorPool(context.m_device, context.m_imGuiDescriptorPool, nullptr);
+    
     vkDestroySampler(context.m_device, context.m_textureSampler, nullptr);
     for (auto & [id, textureContext] : context.m_textureContexts)
     {

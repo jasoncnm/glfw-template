@@ -24,13 +24,17 @@
 
 /*
 TODO: Things that I can do
+- Render scene into imgui image
+- Add lighting
+    - Material
+- Lighting maps
+- Skybox rendering
+- Normal mapping
+- Environment Maps
 - Instanced rendering
 - Multisampling
-    - Material System
-- Normal mapping
-- Skybox rendering
-- Add lighting
 - PBR
+- HDR
   - hierarchical model
 - Ambient occulsion
 - Draw shader arts
@@ -531,7 +535,15 @@ internal void MainLoop(Application & app)
         
             UpdateImGui(app);
         Update(app, dt);
-
+        
+        ImGui::Render();
+        // Update and Render additional Platform Windows
+        if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+        {
+            ImGui::UpdatePlatformWindows();
+            ImGui::RenderPlatformWindowsDefault();
+        }
+        
         // Rendering
         DrawFrame(app, &app.m_renderData);
         
