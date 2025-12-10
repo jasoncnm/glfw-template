@@ -2,6 +2,34 @@
 
 A desktop application template using GLFW and Vulkan
 
+Currently the application have only tested on Windows.
+
+Make sure you have cmake and vulkan installed, and VULKAN_SDK is in your path enviroment. You can verity it by typing 
+
+```
+echo %VULKAN_SDK%
+```
+it shoud output something like
+```
+...\...\VulkanSDK\1.x.xxx.x
+```
+# How to build
+
+clone the repo with the command
+```
+git clone --recurse-submodules <URL>
+```
+
+First, make a build directory and download addtional dependencies by running
+```
+cmake -S . -B build
+```
+
+Then, for the subsequent builds run the command
+```
+build.bat
+```
+
 # screen shots
 
 - Texture Mapping + load .obj file
