@@ -1047,6 +1047,8 @@ dkms.conf
 # project specific
 p_glfw
 
+# render doc
+*.rdc
 
 #unignore
 !resources/**/*
