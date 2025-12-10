@@ -35,7 +35,6 @@ constexpr char * FS_PATH = "src/Shaders/bytecode/triangle_frag.spv";
 
 template<typename T> using InFlights = Array<T, MAX_FRAMES_IN_FLIGHT>;
 
-
 /*
 NOTE: APP_SLOW
    1 - No optimization build (DEBUG build)
@@ -102,9 +101,6 @@ struct TextureContext
 
 struct VulkanContext
 {
-    
-    VkDebugUtilsMessengerEXT   m_debugMessenger;
-    
     VkInstance                 m_instance;
     VkPhysicalDevice           m_physicalDevice = VK_NULL_HANDLE;
     VkDevice                   m_device;
@@ -114,18 +110,35 @@ struct VulkanContext
     VkSwapchainKHR             m_swapChain;
     VkFormat                   m_swapChainImageFormat;
     VkExtent2D                 m_swapChainExtent;
-    VkRenderPass               m_renderPass;
-    VkDescriptorSetLayout      m_descriptorSetLayout;
-    VkPipelineLayout           m_pipelineLayout;
-    VkPipeline                 m_graphicsPipeline;
     VkCommandPool              m_commandPool;
-    VkDescriptorPool           m_descriptorPool;
+    std::vector<VkImage>       m_swapChainImages;
+    std::vector<VkImageView>   m_swapChainImageViews;
     
-    VkDescriptorSet m_imguiDset;
+    VkDebugUtilsMessengerEXT   m_debugMessenger;
+    
+    // NOTE: ImGui layer context
+    VkRenderPass                 m_imGuiRenderPass;
+    std::vector<VkFramebuffer>   m_imGuiFramebuffers;
+    InFlights<VkCommandBuffer>   m_imGuiCommandBuffers;
+    VkDescriptorPool             m_imGuiDescriptorPool;
+    
+    // NOTE: SceneLayer Context
+    // TODO: change scene frame buffer to draw in viewport image views instead of swapchain image views 
+    std::vector<VkImage>        m_sceneImages;
+    std::vector<VkDeviceMemory> m_sceneImageMemories;
+    std::vector<VkImageView>    m_sceneImageViews;
+    std::vector<VkFramebuffer>  m_sceneFramebuffers;
+    VkRenderPass                m_sceneRenderPass;
+    VkDescriptorSetLayout       m_sceneDescriptorSetLayout;
+    VkPipelineLayout            m_scenePipelineLayout;
+    VkPipeline                  m_sceneGraphicsPipeline;
+    VkDescriptorPool            m_sceneDescriptorPool;
+    InFlights<VkCommandBuffer>  m_sceneCommandBuffers;
+    std::vector<VkDescriptorSet> m_Dset;
     
     VkSampler      m_textureSampler;
-    std::unordered_map<char *, TextureContext> m_textureContexts;
-    std::unordered_map<char *, ModelContext>   m_modelContexts;
+    std::vector<TextureContext> m_textureContexts;
+    std::vector<ModelContext>   m_modelContexts;
     
     VkImage        m_depthImage;
     VkDeviceMemory m_depthImageMemory;
@@ -135,34 +148,22 @@ struct VulkanContext
     VkDeviceMemory m_colorImageMemory;
     VkImageView    m_colorImageView;
     
-    std::vector<VkImage>       m_swapChainImages;
-    std::vector<VkImageView>   m_swapChainImageViews;
-    std::vector<VkFramebuffer> m_swapChainFramebuffers;
-    
     InFlights<VkBuffer> m_uniformBuffers;
     InFlights<VkDeviceMemory> m_uniformBuffersMemory;
     InFlights<void *> m_uniformBuffersMapped;
-    InFlights<VkCommandBuffer> m_commandBuffers;
     
     // NOTE: Synchronization Object
     InFlights<VkSemaphore> m_imageAvailableSemaphores;
     InFlights<VkSemaphore> m_renderFinishedSemaphores;
     InFlights<VkFence> m_inFlightFences;
     
-    VkSampleCountFlagBits m_msaaSamples = VK_SAMPLE_COUNT_1_BIT;
     
+    VkSampleCountFlagBits m_msaaSamples = VK_SAMPLE_COUNT_1_BIT;
     uint32 m_currentFrame = 0;
     
      int64 m_shaderTimestamp;
     int64 m_textureTimestamp;
     int64 m_modelTimestamp;
-    
-    VkRenderPass m_imGuiRenderPass;
-    std::vector<VkFramebuffer> m_imGuiFramebuffers;
-    VkCommandPool              m_imGuiCommandPool;
-    InFlights<VkCommandBuffer> m_imGuiCommandBuffers;
-    VkDescriptorPool           m_imGuiDescriptorPool;
-    
     
 };
 

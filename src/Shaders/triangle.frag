@@ -35,5 +35,5 @@ void main()
     vec4 texel = texture(texSampler, fragTexCoord);
 	vec4 depth_color = vec4(depth * consts.fogColor, 1.0f);
 
-    outColor = texel * (1.0f - depth) + depth_color;
+    outColor =  texel * (1.0f - depth) + depth_color;
 }

@@ -198,7 +198,7 @@ internal VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback (
 }
 
 internal VkDebugUtilsMessengerCreateInfoEXT
-GetDebugMessengerCreateInfo()
+GetDebugMessengerCreateInfo(VulkanContext * context)
 {
     VkDebugUtilsMessengerCreateInfoEXT createInfo{};
     createInfo.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
@@ -211,19 +211,19 @@ GetDebugMessengerCreateInfo()
         VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
         VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
     createInfo.pfnUserCallback = DebugCallback;
-    createInfo.pUserData = nullptr;
+    createInfo.pUserData = context;
     
     return createInfo;
 }
 
 internal VkDebugUtilsMessengerEXT
-SetupDebugMessenger(VkInstance instance)
+SetupDebugMessenger(VulkanContext * context, VkInstance instance)
 {
     VkDebugUtilsMessengerEXT debugMessenger = VK_NULL_HANDLE;    
     
     if (enableValidationLayers)
     {
-        auto createInfo = GetDebugMessengerCreateInfo();
+        auto createInfo = GetDebugMessengerCreateInfo(context);
         
         if (CreateDebugUtilsMessengerEXT(instance, &createInfo, nullptr, &debugMessenger) != VK_SUCCESS)
         {
@@ -821,6 +821,8 @@ CreateGraphicsPipeline(VkDevice device, VkExtent2D swapChainExtent, VkRenderPass
     return result;
 }
 
+
+
 internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physicalDevice, VkFormat swapChainImageFormat, VkSampleCountFlagBits msaaSamples)
 {
     VkAttachmentDescription depthAttachment{};
@@ -842,7 +844,7 @@ internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physica
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+     colorAttachment.finalLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
     
     VkAttachmentDescription colorAttachmentResolve = {};
     colorAttachmentResolve.format  = swapChainImageFormat;
@@ -852,13 +854,9 @@ internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physica
     colorAttachmentResolve.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachmentResolve.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
     colorAttachmentResolve.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-    
-    VkAttachmentReference colorAttachmentResolveRef = {};
-    colorAttachmentResolveRef.attachment = 2;
-    colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-    
-    
+    colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // colorAttachmentResolve.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+     
     VkAttachmentReference colorAttachmentRef = {};
     colorAttachmentRef.attachment = 0;
     colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
@@ -867,12 +865,16 @@ internal VkRenderPass CreateRenderPass(VkDevice device, VkPhysicalDevice physica
     depthAttachmentRef.attachment = 1;
     depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
     
+    VkAttachmentReference colorAttachmentResolveRef = {};
+    colorAttachmentResolveRef.attachment = 2;
+    colorAttachmentResolveRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+    
     VkSubpassDescription subpass = {};
     subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments = &colorAttachmentRef;
     subpass.pDepthStencilAttachment = &depthAttachmentRef;
-    subpass.pResolveAttachments = &colorAttachmentResolveRef;
+     subpass.pResolveAttachments = &colorAttachmentResolveRef;
     
     VkSubpassDependency dependency = {};
     dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
@@ -909,7 +911,8 @@ internal VkRenderPass CreateImGuiRenderPass(VkDevice device, VkPhysicalDevice ph
     VkAttachmentDescription colorAttachment = {};
     colorAttachment.format = swapChainImageFormat;
     colorAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+     colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    //colorAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     colorAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
     colorAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
@@ -987,17 +990,18 @@ CreateFramebuffers(VkDevice device,
 
 internal std::vector<VkFramebuffer>
 CreateFramebuffers(VkDevice device,
-                   std::vector<VkImageView> & swapChainImageViews,
+                   std::vector<VkImageView> & imageViews,
                    VkImageView depthImageView,
                    VkImageView colorImageView,
                    VkRenderPass renderPass,
                    VkExtent2D extent)
 {
-    std::vector<VkFramebuffer> framebuffers(swapChainImageViews.size());
+    std::vector<VkFramebuffer> framebuffers(imageViews.size());
     
-    for (int i = 0; i < swapChainImageViews.size(); i++)
+    for (int i = 0; i < imageViews.size(); i++)
     {
-        VkImageView attachments[] = { colorImageView, depthImageView, swapChainImageViews[i]  };
+        VkImageView attachments[] = { colorImageView, depthImageView, imageViews[i]  };
+        // VkImageView attachments[] = { depthImageView, imageViews[i]  };
         
         VkFramebufferCreateInfo framebufferInfo = {};
         framebufferInfo.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
@@ -1153,17 +1157,20 @@ internal void CleanupSwapChain(VulkanContext & context)
     vkDestroyImage(context.m_device, context.m_depthImage, nullptr);
     vkFreeMemory(context.m_device, context.m_depthImageMemory, nullptr);
     
-    for (uint32 i = 0; i < context.m_swapChainFramebuffers.size(); i++)
+    for (uint32 i = 0; i < context.m_imGuiFramebuffers.size(); i++)
     {
-        vkDestroyFramebuffer(context.m_device, context.m_swapChainFramebuffers[i], nullptr);
-        vkDestroyFramebuffer(context.m_device, context.m_imGuiFramebuffers[i], nullptr);
+ vkDestroyFramebuffer(context.m_device, context.m_sceneFramebuffers[i], nullptr);
+vkDestroyFramebuffer(context.m_device, context.m_imGuiFramebuffers[i], nullptr);
     }
-    
+
     for (uint32 i = 0; i < context.m_swapChainImageViews.size(); i++)
     {
         vkDestroyImageView(context.m_device, context.m_swapChainImageViews[i], nullptr);
+         vkDestroyImageView(context.m_device, context.m_sceneImageViews[i], nullptr);
+         vkDestroyImage(context.m_device, context.m_sceneImages[i], nullptr);
+         vkFreeMemory(context.m_device, context.m_sceneImageMemories[i], nullptr);
     }
-    
+
     vkDestroySwapchainKHR(context.m_device, context.m_swapChain, nullptr);
     
 }
@@ -1335,39 +1342,10 @@ internal ImageCreateResult CreateImage(VkDevice device,
 }
 
 
-
-internal ImageResources CreateColorResources(VkDevice device, 
-                                   VkPhysicalDevice physicalDevice, 
-                                   VkFormat swapChainImageFormat, 
-                                   VkExtent2D swapChainExtent,
-                                    VkSampleCountFlagBits msaaSamples)
-{
-    VkFormat colorFormat = swapChainImageFormat;
-    
-    ImageCreateResult imageResult = CreateImage(device,
-                                                physicalDevice,
-                                                swapChainExtent.width,
-                                                swapChainExtent.height,
-                                                1,
-                                                msaaSamples,
-                                                colorFormat,
-                                                VK_IMAGE_TILING_OPTIMAL,
-                                                VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
-                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    
-    VkImageView colorImageView = CreateImageView(device, imageResult.m_image, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
-    
-    ImageResources resources = { imageResult, colorImageView };
-    
-     return resources;
-}
-
-
 internal void TransitionImageLayout(VkDevice device,
                                     VkCommandPool commandPool,
                                     VkQueue graphicsQueue,
                                     VkImage  image,
-                                    VkFormat format,
                                     uint32 mipLevels,
                                     VkImageLayout oldLayout,
                                     VkImageLayout newLayout)
@@ -1408,6 +1386,14 @@ internal void TransitionImageLayout(VkDevice device,
         
         srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
         dstStage = VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT;
+    }
+    else if (oldLayout == VK_IMAGE_LAYOUT_UNDEFINED && newLayout == VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)
+    {
+        barrier.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+        barrier.dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        
+        srcStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
+        dstStage = VK_PIPELINE_STAGE_TRANSFER_BIT;
     }
     else
     {
@@ -1514,6 +1500,30 @@ It should be noted that it is uncommon in practice to generate the mipmap levels
     EndSingleTimeCommands(device, commandBuffer, graphicsQueue, commandPool);
 }
 
+
+internal ImageResources CreateSceneImage(VkDevice device, 
+                                         VkPhysicalDevice physicalDevice, 
+                                         VkCommandPool commandPool,
+                                         VkQueue graphicsQueue,
+                                         VkFormat swapChainImageFormat, 
+                                         VkExtent2D swapChainExtent)
+{
+    ImageCreateResult imageResult = CreateImage(device,
+                                                physicalDevice,
+                                                swapChainExtent.width,
+                                                swapChainExtent.height,
+                                                1, VK_SAMPLE_COUNT_1_BIT,
+                                                VK_FORMAT_B8G8R8A8_SRGB,
+                                                VK_IMAGE_TILING_OPTIMAL,
+                                                VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    VkImageView imageView = CreateImageView(device, imageResult.m_image, VK_FORMAT_B8G8R8A8_SRGB, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    
+    return { imageResult, imageView };
+}
+
+
 internal ImageCreateResult
 CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPool commandPool, VkQueue graphicsQueue, const char * texturePath)
 {
@@ -1528,7 +1538,6 @@ CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPo
     uint32 mipLevels = (uint32)(std::floor(std::log2(max(x, y)))) + 1;
     
     VkDeviceSize imageSize = x * y * 4;
-    
     
     BufferCreateResult stagingBufferResult = CreateBuffer(device,
                                                           physicalDevice,
@@ -1557,7 +1566,6 @@ CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPo
                           commandPool, 
                           graphicsQueue,
                           textureImageResult.m_image,
-                          VK_FORMAT_R8G8B8A8_SRGB,
                           mipLevels, 
                           VK_IMAGE_LAYOUT_UNDEFINED, 
                           VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
@@ -1576,9 +1584,34 @@ CreateTextureImage(VkDevice device, VkPhysicalDevice physicalDevice, VkCommandPo
     
 }
 
+internal ImageResources CreateColorResources(VkDevice device, 
+                                             VkPhysicalDevice physicalDevice, 
+                                             VkFormat swapChainImageFormat, 
+                                             VkExtent2D swapChainExtent,
+                                             VkSampleCountFlagBits msaaSamples)
+{
+    VkFormat colorFormat = swapChainImageFormat;
+    
+    ImageCreateResult imageResult = CreateImage(device,
+                                                physicalDevice,
+                                                swapChainExtent.width,
+                                                swapChainExtent.height,
+                                                1,
+                                                msaaSamples,
+                                                colorFormat,
+                                                VK_IMAGE_TILING_OPTIMAL,
+                                                VK_IMAGE_USAGE_TRANSIENT_ATTACHMENT_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                                VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    
+    VkImageView colorImageView = CreateImageView(device, imageResult.m_image, colorFormat, VK_IMAGE_ASPECT_COLOR_BIT, 1);
+    
+    ImageResources resources = { imageResult, colorImageView };
+    
+    return resources;
+}
+
 internal VkSampler CreateTextureSampler(VkDevice device, VkPhysicalDevice physicalDevice)
 {
-    
     VkSamplerCreateInfo samplerInfo = {};
     samplerInfo.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
     
@@ -1613,6 +1646,8 @@ internal VkSampler CreateTextureSampler(VkDevice device, VkPhysicalDevice physic
     {
         SM_ASSERT(false, "failed to create texture sampler!");
     }
+    
+    SM_TRACE("Created VkSampler");
     
     return sampler;
 }
@@ -1764,38 +1799,16 @@ internal VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
 }
 
 
-internal VkDescriptorPool CreateImGuiDescriptorPool(VkDevice device)
-{
-    VkDescriptorPoolSize pool_sizes[] =
-    {
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE },
-    };
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 0;
-    for (VkDescriptorPoolSize& pool_size : pool_sizes)
-        pool_info.maxSets += pool_size.descriptorCount;
-    pool_info.poolSizeCount = (uint32_t)IM_ARRAYSIZE(pool_sizes);
-    pool_info.pPoolSizes = pool_sizes;
-    
-    VkDescriptorPool result = {};
-    if (vkCreateDescriptorPool(device, &pool_info, nullptr, &result) != VK_SUCCESS)
-    {
-        SM_ASSERT(false, "failed to create descirptor pool");
-    }
-    
-    return result;
-}
-
 
 // NOTE: Do you need to feeds in texture count into the pool size?
-internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 textureCount)
+internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 textureCount, uint32 sceneImageCount)
 {
     VkDescriptorPoolSize poolSizes[] = 
     {
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE },
         { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32)MAX_FRAMES_IN_FLIGHT },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * textureCount },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * sceneImageCount },
         };
     
     VkDescriptorPoolCreateInfo poolInfo = {};
@@ -1966,7 +1979,7 @@ internal VkPhysicalDevice PickPhysicalDevice(VkInstance instance, VkSurfaceKHR s
 }
 
 
-internal VkInstance CreateVkInstance()
+internal VkInstance CreateVkInstance(VulkanContext * context)
 {
     if (enableValidationLayers && !CheckValidationLayerSupport())
     {
@@ -1998,7 +2011,7 @@ internal VkInstance CreateVkInstance()
         createInfo.enabledLayerCount = (uint32)(ArrayCount(validationLayers));
         createInfo.ppEnabledLayerNames = validationLayers;
         
-        debugCreateInfo = GetDebugMessengerCreateInfo();
+        debugCreateInfo = GetDebugMessengerCreateInfo(context);
         createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
         
     }
@@ -2019,7 +2032,7 @@ internal VkInstance CreateVkInstance()
     return instance;
 }
 
-internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
+internal void RecreateSwapChain(Application * app, GLFWwindow* window, VulkanContext & context)
 {
     int32 width = 0, height = 0;
     glfwGetFramebufferSize(window, &width, &height);
@@ -2030,9 +2043,10 @@ internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
     }
     
     vkDeviceWaitIdle(context.m_device);
-    
+    CleanUpImgui();
     CleanupSwapChain(context);
     
+    vkDestroyDescriptorPool(context.m_device, context.m_imGuiDescriptorPool, nullptr);
     // NOTE: swapchain, images, format, extent creation
     {
         CreateSwapChainResult createResult = CreateSwapChain(window, context.m_device, context.m_physicalDevice, context.m_surface);
@@ -2043,6 +2057,31 @@ internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
     }
     context.m_swapChainImageViews = CreateImageViews(context.m_swapChainImages, context.m_device, context.m_swapChainImageFormat);
     
+    {
+        uint32 imageCount = (uint32)context.m_swapChainImages.size();
+        context.m_sceneImages.resize(imageCount);
+        context.m_sceneImageMemories.resize(imageCount);
+        context.m_sceneImageViews.resize(imageCount);
+        
+        for (uint32 i = 0; i < imageCount; i++)
+        {
+            ImageResources sceneImageResources = CreateSceneImage(context.m_device,
+                                                                  context.m_physicalDevice,
+                                                                  context.m_commandPool,
+                                                                  context.m_graphicsQueue,
+                                                                  context.m_swapChainImageFormat,
+                                                                  context.m_swapChainExtent);
+            
+            context.m_sceneImages[i] = sceneImageResources.m_imageResult.m_image;
+            context.m_sceneImageMemories[i] = sceneImageResources.m_imageResult.m_imageMemory;
+            context.m_sceneImageViews[i] = sceneImageResources.m_imageView;
+            
+        }
+    }
+    
+    context.m_imGuiDescriptorPool = CreateDescriptorPool(context.m_device, 
+                                                         (uint32)context.m_textureContexts.size(),
+                                                         (uint32)context.m_sceneImageViews.size());
     
     {
         ImageResources resources = CreateColorResources(context.m_device, 
@@ -2073,13 +2112,15 @@ internal void RecreateSwapChain(GLFWwindow* window, VulkanContext & context)
                                                      context.m_imGuiRenderPass,
                                                      context.m_swapChainExtent);
     
-    context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, 
-                                                         context.m_swapChainImageViews, 
+    context.m_sceneFramebuffers = CreateFramebuffers(context.m_device, 
+                                                         context.m_sceneImageViews, 
                                                          context.m_depthImageView,
                                                          context.m_colorImageView, 
-                                                         context.m_renderPass,
-                                                         context.m_swapChainExtent);
-}
+                                                         context.m_sceneRenderPass,
+                                                     context.m_swapChainExtent);
+    
+    InitImGui(app);
+    }
 
 internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderData)
 {
@@ -2093,8 +2134,9 @@ internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderDa
                              glm::vec3(0.0f, 0.0f, 1.0f));
     
     real32 aspect = (real32)context.m_swapChainExtent.width / (real32)context.m_swapChainExtent.height;
-    ubo.m_projection = glm::perspective(glm::radians(renderData->m_camera.m_fovy),
-                                        aspect, 
+    ubo.m_projection = glm::perspectiveFov(glm::radians(renderData->m_camera.m_fov),
+                                           renderData->m_screenWidth,
+                                           renderData->m_screenHeight,
                                         renderData->m_camera.m_nearClip,
                                         renderData->m_camera.m_farClip);
     ubo.m_projection[1][1] *= -1;
@@ -2105,9 +2147,17 @@ internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderDa
 
 
 internal
-void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint32 imageIndex)
+void RecordCommandBuffer(VkCommandBuffer & commandBuffer, 
+                         VkRenderPass & renderPass,
+                         VkFramebuffer & frameBuffer,
+                         VkExtent2D & extent,
+                         VkPipeline & graphicsPipeline,
+                         VkPipelineLayout & pipelineLayout,
+                         std::vector<ModelContext> & modelContexts,
+                         std::vector<TextureContext> & textureContexts,
+                         RenderData * renderData,
+                         uint32 currentFrame)
 {
-    VkCommandBuffer & commandBuffer = context.m_commandBuffers[context.m_currentFrame];
     
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2121,40 +2171,41 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = context.m_renderPass;
-    renderPassInfo.framebuffer = context.m_swapChainFramebuffers[imageIndex];
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = frameBuffer;
     renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = context.m_swapChainExtent;
+    renderPassInfo.renderArea.extent = extent;
     
-    VkClearValue clearColor =  { { renderData->m_clearColor.r, renderData->m_clearColor.g, renderData->m_clearColor.b, renderData->m_clearColor.a } };
+    VkClearValue clearColor =  
+    { { renderData->m_clearColor.r, renderData->m_clearColor.g, renderData->m_clearColor.b, renderData->m_clearColor.a } };
     VkClearValue clearDepthStencil = { 1.0f, 0 };
     
     VkClearValue clearValues[] = { clearColor, clearDepthStencil };
     renderPassInfo.clearValueCount = ArrayCount(clearValues);
     renderPassInfo.pClearValues = clearValues;
-    
+
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
-    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, context.m_graphicsPipeline);
+    vkCmdBindPipeline(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphicsPipeline);
     
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = (real32)context.m_swapChainExtent.width;
-    viewport.height = (real32)context.m_swapChainExtent.height;
+    viewport.width = (real32)extent.width;
+    viewport.height = (real32)extent.height;
     viewport.minDepth = 0;
     viewport.maxDepth = 1;
     vkCmdSetViewport(commandBuffer, 0, 1, &viewport);
     
     VkRect2D scissor = {};
     scissor.offset = { 0, 0 };
-    scissor.extent = context.m_swapChainExtent;
+    scissor.extent = extent;
     vkCmdSetScissor(commandBuffer, 0, 1, &scissor);
     
     for (uint32 i = 0; i < renderData->m_transforms.count; i++)
     {
         Transform & transform = renderData->m_transforms[i];
-        ModelContext & modelContext = context.m_modelContexts[transform.m_modelID];
-        TextureContext & textureContext = context.m_textureContexts[transform.m_textureID];
+        ModelContext & modelContext = modelContexts[i];
+        TextureContext & textureContext = textureContexts[i];
         
     VkBuffer vertexBuffers[] = { modelContext.m_vertexBuffer };
     VkDeviceSize offsets[] = { 0 };
@@ -2164,10 +2215,10 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     
     vkCmdBindDescriptorSets(commandBuffer,
                             VK_PIPELINE_BIND_POINT_GRAPHICS,
-                            context.m_pipelineLayout,
+                            pipelineLayout,
                             0,
                             1,
-                            &textureContext.m_descriptorSets[context.m_currentFrame],
+                            &textureContext.m_descriptorSets[currentFrame],
                             0,
                             nullptr);
     
@@ -2177,7 +2228,7 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
     fragConsts.m_fogColor = renderData->m_fog.m_fogColor;
     
     vkCmdPushConstants(commandBuffer,
-                       context.m_pipelineLayout, 
+                       pipelineLayout, 
                        VK_SHADER_STAGE_FRAGMENT_BIT, 
                        sizeof(VertPushConstants), sizeof(fragConsts), 
                        &fragConsts);
@@ -2187,7 +2238,7 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
         VertPushConstants meshConstants = {};
         meshConstants.m_model = glm::translate(glm::mat4(1.0), meshPosition);
         vkCmdPushConstants(commandBuffer,
-                           context.m_pipelineLayout, 
+                           pipelineLayout, 
                            VK_SHADER_STAGE_VERTEX_BIT, 
                            0, sizeof(meshConstants), 
                            &meshConstants);
@@ -2204,9 +2255,11 @@ void RecordCommandBuffer(VulkanContext & context, RenderData * renderData, uint3
 }
 
 internal
-void RecordImGuiCommandBuffer(VulkanContext & context, uint32 imageIndex)
+void RecordImGuiCommandBuffer(VkCommandBuffer & commandBuffer, 
+                              VkRenderPass & renderPass,
+                              VkFramebuffer & frameBuffer,
+                              VkExtent2D & extent)
 {
-    VkCommandBuffer & commandBuffer = context.m_imGuiCommandBuffers[context.m_currentFrame];
     
     VkCommandBufferBeginInfo beginInfo = {};
     beginInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -2220,10 +2273,18 @@ void RecordImGuiCommandBuffer(VulkanContext & context, uint32 imageIndex)
     
     VkRenderPassBeginInfo renderPassInfo = {};
     renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-    renderPassInfo.renderPass = context.m_imGuiRenderPass;
-    renderPassInfo.framebuffer = context.m_imGuiFramebuffers[imageIndex];
+    renderPassInfo.renderPass = renderPass;
+    renderPassInfo.framebuffer = frameBuffer;
     renderPassInfo.renderArea.offset = { 0, 0 };
-    renderPassInfo.renderArea.extent = context.m_swapChainExtent;
+    renderPassInfo.renderArea.extent = extent;
+    
+    VkClearValue clearColor =  { { 0.2f, 0.2f, 0.2f, 1.0f } };
+    VkClearValue clearDepthStencil = { 1.0f, 0 };
+    
+    VkClearValue clearValues[] = { clearColor, clearDepthStencil };
+    
+    renderPassInfo.clearValueCount = ArrayCount(clearValues);
+    renderPassInfo.pClearValues = clearValues;
     
     vkCmdBeginRenderPass(commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
     
@@ -2238,187 +2299,34 @@ void RecordImGuiCommandBuffer(VulkanContext & context, uint32 imageIndex)
 }
 
 
-internal void InitVulkan(Application & app)
-{
-    VulkanContext & context  = app.m_renderContext;
-    context.m_instance       = CreateVkInstance();
-    context.m_debugMessenger = SetupDebugMessenger(context.m_instance);
-    context.m_surface        = CreateSurface(app.m_window, context.m_instance);
-    context.m_physicalDevice = PickPhysicalDevice(context.m_instance, context.m_surface);
-    context.m_msaaSamples    = GetMaxUsableSampleCount(context.m_physicalDevice);
-    context.m_device         = CreateLogicalDevice(context.m_physicalDevice, context.m_surface);
-    context.m_graphicsQueue  = CreateGraphicsQueue(context.m_device, context.m_physicalDevice, context.m_surface);
-    context.m_presentQueue   = CreatePresentQueue(context.m_device, context.m_physicalDevice, context.m_surface);
-    
-    // NOTE: swapchain, images, format, extent creation
-    {
-        CreateSwapChainResult createResult = CreateSwapChain(app.m_window, context.m_device, context.m_physicalDevice, context.m_surface);
-        
-        context.m_swapChain            = createResult.m_swapChain;
-        context.m_swapChainImages      = createResult.m_swapChainImages;
-        context.m_swapChainImageFormat = createResult.m_swapChainImageFormat;
-        context.m_swapChainExtent      = createResult.m_swapChainExtent;
-    }
-    
-    context.m_swapChainImageViews = CreateImageViews(context.m_swapChainImages, context.m_device, context.m_swapChainImageFormat);
-    context.m_renderPass          = CreateRenderPass(context.m_device, context.m_physicalDevice, context.m_swapChainImageFormat, context.m_msaaSamples);
-    context.m_descriptorSetLayout = CreateDescriptorSetLayout(context.m_device);
-    
-    {
-        CreateGraphicsPipelineResult result =
-            CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout, context.m_msaaSamples);
-        
-        context.m_pipelineLayout  = result.m_pipelineLayout;
-        context.m_graphicsPipeline = result.m_graphicsPipeline;
-    }
-    
-    context.m_commandPool = CreateCommandPool(context.m_device, context.m_physicalDevice, context.m_surface);
-    
-    {
-        for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
-        {
-            Transform & tr = app.m_renderData.m_transforms[i];
-            if (context.m_textureContexts.find(tr.m_textureID) != context.m_textureContexts.end())
-            {
-                continue;
-            }
-            
-                                        ImageCreateResult result = CreateTextureImage(context.m_device, 
-                                                      context.m_physicalDevice, 
-                                                      context.m_commandPool, 
-                                                      context.m_graphicsQueue, 
-                                                          tr.m_textureID);
-            
-            TextureContext texture = {};
-            texture.m_textureImage       = result.m_image;
-            texture.m_textureImageMemory = result.m_imageMemory;
-            texture.m_mipLevels          = result.m_mipLevels;
-            texture.m_textureImageView = CreateTextureImageView(context.m_device, texture.m_textureImage, texture.m_mipLevels);
-            context.m_textureContexts[tr.m_textureID] = texture;
-            }
-        
-        context.m_textureSampler   = CreateTextureSampler(context.m_device, context.m_physicalDevice);
-        }
-    
-    {
-        ImageResources result = CreateDepthResources(context.m_device,
-                                                     context.m_physicalDevice, 
-                                                     context.m_swapChainExtent, 
-                                                     context.m_msaaSamples);
-        
-        context.m_depthImage       = result.m_imageResult.m_image;
-        context.m_depthImageMemory = result.m_imageResult.m_imageMemory;
-        context.m_depthImageView   = result.m_imageView;
-    }
-    
-    {
-        ImageResources resources = CreateColorResources(context.m_device, 
-                                                        context.m_physicalDevice, 
-                                                        context.m_swapChainImageFormat,
-                                                        context.m_swapChainExtent,
-                                                        context.m_msaaSamples);
-        
-        context.m_colorImage = resources.m_imageResult.m_image;
-        context.m_colorImageMemory = resources.m_imageResult.m_imageMemory;
-        context.m_colorImageView = resources.m_imageView;
-                                                        }
-    
-    context.m_swapChainFramebuffers = CreateFramebuffers(context.m_device, 
-                                                         context.m_swapChainImageViews,
-                                                         context.m_depthImageView,
-                                                         context.m_colorImageView, 
-                                                         context.m_renderPass,
-                                                         context.m_swapChainExtent);
-    
-    for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
-    {
-        Transform & tr = app.m_renderData.m_transforms[i];
-        ModelContext & modelContext = context.m_modelContexts[tr.m_modelID];
-        {
-        BufferCreateResult result = CreateAndBindVertexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, tr.m_model.m_vertices);
-            modelContext.m_vertexBuffer        = result.m_buffer;
-            modelContext.m_vertexBufferMemory  = result.m_bufferMemory;
-    }
-    
-    {
-        BufferCreateResult result = CreateAndBindIndexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, tr.m_model.m_indices);
-            modelContext.m_indexBuffer         = result.m_buffer;
-            modelContext.m_indexBufferMemory   = result.m_bufferMemory;
-    }
-    }
-    
-    {
-        UniformBufferCreateResult result = CreateUniformBuffers(context.m_device, context.m_physicalDevice);
-        context.m_uniformBuffers       = result.m_uniformBuffers;
-        context.m_uniformBuffersMemory = result.m_uniformBuffersMemory;
-        context.m_uniformBuffersMapped = result.m_uniformBuffersMapped;
-    }
-    
-    context.m_descriptorPool = CreateDescriptorPool(context.m_device, (uint32)context.m_textureContexts.size());
-    for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
-    {
-        Transform & tr = app.m_renderData.m_transforms[i];
-        TextureContext & textureContext = context.m_textureContexts[tr.m_textureID];
-        textureContext.m_descriptorSets = CreateDescriptorSets(context.m_device,
-                                                context.m_uniformBuffers,
-                                                context.m_descriptorPool,
-                                                context.m_descriptorSetLayout,
-                                                textureContext.m_textureImageView,
-                                                context.m_textureSampler);
-    }
-    
-    context.m_commandBuffers = CreateCommandBuffers(context.m_device, context.m_commandPool);
-    
-    {
-        SyncObjects syncObjs           = CreateSyncObjects(context.m_device);
-        context.m_imageAvailableSemaphores = syncObjs.m_imageAvailableSemaphores;
-        context.m_renderFinishedSemaphores = syncObjs.m_renderFinishedSemaphores;
-        context.m_inFlightFences           = syncObjs.m_inFlightFences;
-    }
-    
-    int64 timestampVS = GetTimestamp(VS_PATH);
-    int64 timestampFS = GetTimestamp(FS_PATH);
-    context.m_shaderTimestamp = max(timestampVS, timestampFS);
-    
-    
-    context.m_imGuiRenderPass = CreateImGuiRenderPass(context.m_device, context.m_physicalDevice, context.m_swapChainImageFormat);
-    
-    
-    context.m_imGuiFramebuffers = CreateFramebuffers(context.m_device, context.m_swapChainImageViews, context.m_imGuiRenderPass, context.m_swapChainExtent);
-    
-    context.m_imGuiCommandPool = CreateCommandPool(context.m_device, context.m_physicalDevice, context.m_surface);
-    context.m_imGuiCommandBuffers = CreateCommandBuffers(context.m_device, context.m_commandPool);
-    context.m_imGuiDescriptorPool = CreateImGuiDescriptorPool(context.m_device);
-    }
-
 internal void RecreateGrahpicsPipeline(VulkanContext & context)
 {
     vkDeviceWaitIdle(context.m_device);
     
-    vkDestroyPipeline(context.m_device, context.m_graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(context.m_device, context.m_pipelineLayout, nullptr);
+    vkDestroyPipeline(context.m_device, context.m_sceneGraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(context.m_device, context.m_scenePipelineLayout, nullptr);
     
     CreateGraphicsPipelineResult result =
-        CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_renderPass, context.m_descriptorSetLayout, context.m_msaaSamples);
+        CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_sceneRenderPass, context.m_sceneDescriptorSetLayout, context.m_msaaSamples);
     
-    context.m_pipelineLayout  = result.m_pipelineLayout;
-    context.m_graphicsPipeline = result.m_graphicsPipeline;
+    context.m_scenePipelineLayout  = result.m_pipelineLayout;
+    context.m_sceneGraphicsPipeline = result.m_graphicsPipeline;
     
 }
 
-internal void DrawFrame(Application & app, RenderData * renderData)
+internal void DrawFrame(Application * app, RenderData * renderData)
 {
-    VulkanContext & context = app.m_renderContext;
+    VulkanContext & context = app->m_renderContext;
     vkWaitForFences(context.m_device, 1, &context.m_inFlightFences[context.m_currentFrame], VK_TRUE, UINT64_MAX);
     
     {
     int64 timestampVS = GetTimestamp(VS_PATH);
     int64 timestampFS = GetTimestamp(FS_PATH);
     int64 currentTimeStamp = max(timestampVS, timestampFS);
-        if (KeyIsDown(app.m_input, GLFW_KEY_R) && currentTimeStamp > app.m_renderContext.m_shaderTimestamp)
+        if (KeyIsDown(app->m_input, GLFW_KEY_R) && currentTimeStamp > app->m_renderContext.m_shaderTimestamp)
     {
-        RecreateGrahpicsPipeline(app.m_renderContext);
-        app.m_renderContext.m_shaderTimestamp = currentTimeStamp;
+        RecreateGrahpicsPipeline(app->m_renderContext);
+        app->m_renderContext.m_shaderTimestamp = currentTimeStamp;
         }
     }
     
@@ -2432,7 +2340,7 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     
     if (result == VK_ERROR_OUT_OF_DATE_KHR)
     {
-        RecreateSwapChain(app.m_window, context);
+        RecreateSwapChain(app, app->m_window, context);
         return;
     }
     else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR)
@@ -2442,17 +2350,31 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     
     vkResetFences(context.m_device, 1, &context.m_inFlightFences[context.m_currentFrame]);
     
-    vkResetCommandBuffer(context.m_commandBuffers[context.m_currentFrame], 0);
+    vkResetCommandBuffer(context.m_sceneCommandBuffers[context.m_currentFrame], 0);
     vkResetCommandBuffer(context.m_imGuiCommandBuffers[context.m_currentFrame], 0);
     
-    RecordCommandBuffer(context, renderData, imageIndex);
-    RecordImGuiCommandBuffer(context, imageIndex);
+    RecordImGuiCommandBuffer(context.m_imGuiCommandBuffers[context.m_currentFrame],
+                             context.m_imGuiRenderPass, 
+                             context.m_imGuiFramebuffers[imageIndex], 
+                             context.m_swapChainExtent);
+    
+    
+RecordCommandBuffer(context.m_sceneCommandBuffers[context.m_currentFrame], 
+                        context.m_sceneRenderPass,
+                        context.m_sceneFramebuffers[imageIndex],
+                        context.m_swapChainExtent,
+                        context.m_sceneGraphicsPipeline, 
+                        context.m_scenePipelineLayout,
+                        context.m_modelContexts,
+                        context.m_textureContexts,
+                        renderData,
+                        context.m_currentFrame);
     UpdateUniformBuffer(context, renderData);
     
     VkCommandBuffer submitCommandBuffers[] =
     { 
-        context.m_commandBuffers[context.m_currentFrame],
-        context.m_imGuiCommandBuffers[context.m_currentFrame] 
+          context.m_sceneCommandBuffers[context.m_currentFrame],
+        context.m_imGuiCommandBuffers[context.m_currentFrame],
     };
     
     VkSubmitInfo submitInfo = {};
@@ -2487,10 +2409,10 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     
     result = vkQueuePresentKHR(context.m_presentQueue, &presentInfo);
     
-    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || app.m_framebufferResized)
+    if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || app->m_framebufferResized)
     {
-        app.m_framebufferResized = false;
-        RecreateSwapChain(app.m_window, context);
+        app->m_framebufferResized = false;
+        RecreateSwapChain(app, app->m_window, context);
     }
     else if (result != VK_SUCCESS)
     {
@@ -2501,21 +2423,214 @@ internal void DrawFrame(Application & app, RenderData * renderData)
     context.m_currentFrame = (context.m_currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+
+internal void InitVulkan(Application * app)
+{
+    VulkanContext & context  = app->m_renderContext;
+    context.m_instance       = CreateVkInstance(&context);
+    context.m_debugMessenger = SetupDebugMessenger(&context, context.m_instance);
+    context.m_surface        = CreateSurface(app->m_window, context.m_instance);
+    context.m_physicalDevice = PickPhysicalDevice(context.m_instance, context.m_surface);
+    context.m_msaaSamples    = GetMaxUsableSampleCount(context.m_physicalDevice);
+    context.m_device         = CreateLogicalDevice(context.m_physicalDevice, context.m_surface);
+    context.m_graphicsQueue  = CreateGraphicsQueue(context.m_device, context.m_physicalDevice, context.m_surface);
+    context.m_presentQueue   = CreatePresentQueue(context.m_device, context.m_physicalDevice, context.m_surface);
+    context.m_commandPool    = CreateCommandPool(context.m_device, context.m_physicalDevice, context.m_surface);
+    
+    // NOTE: swapchain, images, format, extent creation
+    {
+        CreateSwapChainResult createResult = CreateSwapChain(app->m_window, context.m_device, context.m_physicalDevice, context.m_surface);
+        
+        context.m_swapChain            = createResult.m_swapChain;
+        context.m_swapChainImages      = createResult.m_swapChainImages;
+        context.m_swapChainImageFormat = createResult.m_swapChainImageFormat;
+        context.m_swapChainExtent      = createResult.m_swapChainExtent;
+        
+        context.m_swapChainImageViews = CreateImageViews(context.m_swapChainImages, context.m_device, context.m_swapChainImageFormat);
+        
+    }
+    
+    {
+    uint32 imageCount = (uint32)context.m_swapChainImages.size();
+    context.m_sceneImages.resize(imageCount);
+        context.m_sceneImageMemories.resize(imageCount);
+        context.m_sceneImageViews.resize(imageCount);
+    
+    for (uint32 i = 0; i < imageCount; i++)
+    {
+        ImageResources sceneImageResources = CreateSceneImage(context.m_device,
+                                                              context.m_physicalDevice,
+                                                              context.m_commandPool,
+                                                              context.m_graphicsQueue,
+                                                              context.m_swapChainImageFormat,
+                                                              context.m_swapChainExtent);
+        
+        context.m_sceneImages[i] = sceneImageResources.m_imageResult.m_image;
+        context.m_sceneImageMemories[i] = sceneImageResources.m_imageResult.m_imageMemory;
+        context.m_sceneImageViews[i] = sceneImageResources.m_imageView;
+        
+    }
+    }
+    
+    context.m_sceneRenderPass          = CreateRenderPass(context.m_device, context.m_physicalDevice, context.m_swapChainImageFormat, context.m_msaaSamples);
+    
+    
+    context.m_sceneDescriptorSetLayout = CreateDescriptorSetLayout(context.m_device);
+    
+    context.m_imGuiRenderPass = CreateImGuiRenderPass(context.m_device, context.m_physicalDevice, context.m_swapChainImageFormat);
+    
+    {
+        CreateGraphicsPipelineResult result =
+            CreateGraphicsPipeline(context.m_device, context.m_swapChainExtent, context.m_sceneRenderPass, context.m_sceneDescriptorSetLayout, context.m_msaaSamples);
+        
+        context.m_scenePipelineLayout  = result.m_pipelineLayout;
+        context.m_sceneGraphicsPipeline = result.m_graphicsPipeline;
+    }
+    
+    context.m_textureContexts.resize(app->m_renderData.m_transforms.count);
+    context.m_modelContexts.resize(app->m_renderData.m_transforms.count);
+    
+        for (uint32 i = 0; i < app->m_renderData.m_transforms.count; i++)
+        {
+            uint32 max_size = (uint32)context.m_textureContexts.max_size();
+            Transform & tr = app->m_renderData.m_transforms[i];
+            
+            ImageCreateResult result = CreateTextureImage(context.m_device, 
+                                                          context.m_physicalDevice, 
+                                                          context.m_commandPool, 
+                                                          context.m_graphicsQueue, 
+                                                          tr.m_textureID);
+            
+            TextureContext texture = {};
+            texture.m_textureImage       = result.m_image;
+            texture.m_textureImageMemory = result.m_imageMemory;
+            texture.m_mipLevels          = result.m_mipLevels;
+            texture.m_textureImageView = CreateTextureImageView(context.m_device, texture.m_textureImage, texture.m_mipLevels);
+            context.m_textureContexts[i] = texture;
+            
+        ModelContext modelContext = {};
+            {
+                BufferCreateResult result = CreateAndBindVertexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, tr.m_model.m_vertices);
+                modelContext.m_vertexBuffer        = result.m_buffer;
+                modelContext.m_vertexBufferMemory  = result.m_bufferMemory;
+            }
+            
+            {
+                BufferCreateResult result = CreateAndBindIndexBuffer(context.m_device, context.m_commandPool, context.m_graphicsQueue, context.m_physicalDevice, tr.m_model.m_indices);
+                modelContext.m_indexBuffer         = result.m_buffer;
+                modelContext.m_indexBufferMemory   = result.m_bufferMemory;
+        }
+        
+        context.m_modelContexts[i] = modelContext;
+        
+        }
+    
+    context.m_textureSampler   = CreateTextureSampler(context.m_device, context.m_physicalDevice);
+    
+    
+    {
+        ImageResources result = CreateDepthResources(context.m_device,
+                                                     context.m_physicalDevice, 
+                                                     context.m_swapChainExtent, 
+                                                     context.m_msaaSamples);
+        
+        context.m_depthImage       = result.m_imageResult.m_image;
+        context.m_depthImageMemory = result.m_imageResult.m_imageMemory;
+        context.m_depthImageView   = result.m_imageView;
+    }
+    
+    {
+        ImageResources resources = CreateColorResources(context.m_device, 
+                                                        context.m_physicalDevice, 
+                                                        context.m_swapChainImageFormat,
+                                                        context.m_swapChainExtent,
+                                                        context.m_msaaSamples);
+        
+        context.m_colorImage = resources.m_imageResult.m_image;
+        context.m_colorImageMemory = resources.m_imageResult.m_imageMemory;
+        context.m_colorImageView = resources.m_imageView;
+    }
+    
+    /*
+context.m_sceneFramebuffers = CreateFramebuffers(context.m_device, 
+                                                         context.m_swapChainImageViews,
+                                                         context.m_depthImageView,
+                                                         context.m_colorImageView, 
+                                                         context.m_sceneRenderPass,
+                                                         context.m_swapChainExtent);
+*/
+    context.m_sceneFramebuffers = CreateFramebuffers(context.m_device, 
+                                                     context.m_sceneImageViews,
+                                                     context.m_depthImageView,
+                                                     context.m_colorImageView, 
+                                                     context.m_sceneRenderPass,
+                                                     context.m_swapChainExtent);
+    
+    context.m_imGuiFramebuffers = CreateFramebuffers(context.m_device,
+                                                     context.m_swapChainImageViews, 
+                                                     context.m_imGuiRenderPass,
+                                                     context.m_swapChainExtent);
+    
+    
+    
+    {
+        UniformBufferCreateResult result = CreateUniformBuffers(context.m_device, context.m_physicalDevice);
+        context.m_uniformBuffers       = result.m_uniformBuffers;
+        context.m_uniformBuffersMemory = result.m_uniformBuffersMemory;
+        context.m_uniformBuffersMapped = result.m_uniformBuffersMapped;
+    }
+    
+    context.m_sceneDescriptorPool = CreateDescriptorPool(context.m_device,
+                                                         (uint32)context.m_textureContexts.size(),
+                                                         (uint32)context.m_sceneImageViews.size());
+    
+    context.m_imGuiDescriptorPool = CreateDescriptorPool(context.m_device, 
+                                                         (uint32)context.m_textureContexts.size(),
+                                                         (uint32)context.m_sceneImageViews.size());
+                                                         
+    for (uint32 i = 0; i < app->m_renderData.m_transforms.count; i++)
+    {
+        Transform & tr = app->m_renderData.m_transforms[i];
+        TextureContext & textureContext = context.m_textureContexts[i];
+        textureContext.m_descriptorSets = CreateDescriptorSets(context.m_device,
+                                                               context.m_uniformBuffers,
+                                                               context.m_sceneDescriptorPool,
+                                                               context.m_sceneDescriptorSetLayout,
+                                                               textureContext.m_textureImageView,
+                                                               context.m_textureSampler);
+    }
+    
+    context.m_sceneCommandBuffers = CreateCommandBuffers(context.m_device, context.m_commandPool);
+    
+    context.m_imGuiCommandBuffers = CreateCommandBuffers(context.m_device, context.m_commandPool);
+    
+    {
+        SyncObjects syncObjs           = CreateSyncObjects(context.m_device);
+        context.m_imageAvailableSemaphores = syncObjs.m_imageAvailableSemaphores;
+        context.m_renderFinishedSemaphores = syncObjs.m_renderFinishedSemaphores;
+        context.m_inFlightFences           = syncObjs.m_inFlightFences;
+    }
+    
+    int64 timestampVS = GetTimestamp(VS_PATH);
+    int64 timestampFS = GetTimestamp(FS_PATH);
+    context.m_shaderTimestamp = max(timestampVS, timestampFS);
+}
+
+
 internal void CleanUpVulkan(VulkanContext & context)
 {
+    
     CleanupSwapChain(context);
     
     vkDestroyRenderPass(context.m_device, context.m_imGuiRenderPass, nullptr);
-    vkDestroyCommandPool(context.m_device, context.m_imGuiCommandPool, nullptr);
-    vkDestroyDescriptorPool(context.m_device, context.m_imGuiDescriptorPool, nullptr);
+     vkDestroyDescriptorPool(context.m_device, context.m_imGuiDescriptorPool, nullptr);
     
     vkDestroySampler(context.m_device, context.m_textureSampler, nullptr);
-    for (auto & [id, textureContext] : context.m_textureContexts)
+    for (uint32 i = 0; i < context.m_textureContexts.size(); i++)
     {
-        SM_TRACE("deleting texture id: %s", id);
-        vkDestroyImageView(context.m_device, textureContext.m_textureImageView, nullptr);
-        vkDestroyImage(context.m_device, textureContext.m_textureImage, nullptr);
-        vkFreeMemory(context.m_device, textureContext.m_textureImageMemory, nullptr);
+        vkDestroyImageView(context.m_device, context.m_textureContexts[i].m_textureImageView, nullptr);
+        vkDestroyImage(context.m_device, context.m_textureContexts[i].m_textureImage, nullptr);
+        vkFreeMemory(context.m_device, context.m_textureContexts[i].m_textureImageMemory, nullptr);
     }
     for (uint32 i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
@@ -2523,16 +2638,15 @@ internal void CleanUpVulkan(VulkanContext & context)
         vkFreeMemory(context.m_device, context.m_uniformBuffersMemory[i], nullptr);
     }
     
-    vkDestroyDescriptorPool(context.m_device, context.m_descriptorPool, nullptr);
-    vkDestroyDescriptorSetLayout(context.m_device, context.m_descriptorSetLayout, nullptr);
+    vkDestroyDescriptorPool(context.m_device, context.m_sceneDescriptorPool, nullptr);
+    vkDestroyDescriptorSetLayout(context.m_device, context.m_sceneDescriptorSetLayout, nullptr);
     
-    for (auto & [id, modelContext] : context.m_modelContexts)
+    for (uint32 i = 0; i < context.m_modelContexts.size(); i++)
     {
-        SM_TRACE("deleting model id: %s", id);
-        vkDestroyBuffer(context.m_device, modelContext.m_vertexBuffer, nullptr);
-        vkFreeMemory(context.m_device, modelContext.m_vertexBufferMemory, nullptr);
-        vkDestroyBuffer(context.m_device, modelContext.m_indexBuffer, nullptr);
-    vkFreeMemory(context.m_device, modelContext.m_indexBufferMemory, nullptr);
+        vkDestroyBuffer(context.m_device, context.m_modelContexts[i].m_vertexBuffer, nullptr);
+        vkFreeMemory(context.m_device, context.m_modelContexts[i].m_vertexBufferMemory, nullptr);
+        vkDestroyBuffer(context.m_device, context.m_modelContexts[i].m_indexBuffer, nullptr);
+        vkFreeMemory(context.m_device, context.m_modelContexts[i].m_indexBufferMemory, nullptr);
     }
     
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
@@ -2542,15 +2656,16 @@ internal void CleanUpVulkan(VulkanContext & context)
         vkDestroyFence(context.m_device, context.m_inFlightFences[i], nullptr);
     }
     vkDestroyCommandPool(context.m_device, context.m_commandPool, nullptr);
-    vkDestroyPipeline(context.m_device, context.m_graphicsPipeline, nullptr);
-    vkDestroyPipelineLayout(context.m_device, context.m_pipelineLayout, nullptr);
-    vkDestroyRenderPass(context.m_device, context.m_renderPass, nullptr);
+    vkDestroyPipeline(context.m_device, context.m_sceneGraphicsPipeline, nullptr);
+    vkDestroyPipelineLayout(context.m_device, context.m_scenePipelineLayout, nullptr);
+    vkDestroyRenderPass(context.m_device, context.m_sceneRenderPass, nullptr);
+    
     vkDestroyDevice(context.m_device, nullptr);
     if (enableValidationLayers)
     {
         DestroyDebugUtilsMessengerEXT(context.m_instance, context.m_debugMessenger, nullptr);
     }
+    
     vkDestroySurfaceKHR(context.m_instance, context.m_surface, nullptr);
     vkDestroyInstance(context.m_instance, nullptr);
-    
-}
+    }

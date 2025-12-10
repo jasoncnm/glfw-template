@@ -193,7 +193,7 @@ internal void GeneratePositions(std::vector<glm::vec3> & meshPositions, uint32 c
     
 }
 
-internal void InitRenderData(Application & app)
+internal void InitRenderData(Application * app)
 {
     {
     Transform tr;
@@ -203,7 +203,7 @@ internal void InitRenderData(Application & app)
         tr.m_numCopies = 2;
     GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
     tr.m_model = LoadModel(tr.m_modelID);
-        app.m_renderData.m_transforms.Add(tr);
+        app->m_renderData.m_transforms.Add(tr);
     }
     
     {
@@ -214,7 +214,7 @@ internal void InitRenderData(Application & app)
         tr.m_numCopies = 1;
         GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
         tr.m_model = LoadModel(tr.m_modelID);
-        app.m_renderData.m_transforms.Add(tr);
+        app->m_renderData.m_transforms.Add(tr);
     }
      
     {
@@ -225,15 +225,17 @@ internal void InitRenderData(Application & app)
         tr.m_numCopies = 1;
         GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
         tr.m_model = LoadModel(MODEL_PATH3);
-        app.m_renderData.m_transforms.Add(tr);
+        app->m_renderData.m_transforms.Add(tr);
     }
     
-    app.m_renderData.m_camera = {};
-    app.m_renderData.m_camera.m_pos = { 26.0f, 17.0f, 20.0f };
-    app.m_renderData.m_camera.m_pitch = -36;
-    app.m_renderData.m_camera.m_yaw = -120;
-    app.m_renderData.m_clearColor = glm::vec4(HexToRGB(0x22338D), 1.0f);
-    app.m_renderData.m_fog.m_fogColor = HexToRGB(0x22338D);
+    app->m_renderData.m_camera = {};
+    app->m_renderData.m_camera.m_pos = { 26.0f, 17.0f, 20.0f };
+    app->m_renderData.m_camera.m_pitch = -36;
+    app->m_renderData.m_camera.m_yaw = -120;
+    app->m_renderData.m_clearColor = glm::vec4(HexToRGB(0x22338D), 1.0f);
+    app->m_renderData.m_fog.m_fogColor = HexToRGB(0x22338D);
+    app->m_renderData.m_fog.m_viewDistence = 50.0f;
+    app->m_renderData.m_fog.m_steepness = 1.0f;
 }
 
 internal void FramebufferResizeCallback(GLFWwindow  * window, int32 width, int32 height)
@@ -322,25 +324,25 @@ internal void InputSetJoystickCallback(int32 jid, int32 event)
     }
 }
 
-internal void InitInput(Application & app)
+internal void InitInput(Application * app)
 {
-    app.m_input = {};
+    app->m_input = {};
     
-    app.m_input.screenSize = { WIDTH, HEIGHT };
+    app->m_input.screenSize = { WIDTH, HEIGHT };
     
     for (uint32 i = 0; i <= GLFW_KEY_LAST; i++) 
     {
-        app.m_input.keys[i] = {};
+        app->m_input.keys[i] = {};
     }
 }
 
-internal void InitWindow(Application & app)
+internal void InitWindow(Application * app)
 {
     SM_ASSERT(glfwInit(), "Could not initilize GLFW!");
 
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    app.m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
-    SM_ASSERT(app.m_window, "Could not create window");
+    app->m_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", nullptr, nullptr);
+    SM_ASSERT(app->m_window, "Could not create window");
     SM_ASSERT(glfwVulkanSupported(), "GLFW: Vulkan Not Supported\n");
 
 
@@ -348,56 +350,56 @@ internal void InitWindow(Application & app)
     const GLFWvidmode * videoMode = glfwGetVideoMode(primaryMonitor);
     int32 windowLeft = videoMode->width / 2 - WIDTH / 2;
     int32 windowTop = videoMode->height / 2 - HEIGHT / 2;
-    glfwSetWindowPos(app.m_window, windowLeft, windowTop);
+    glfwSetWindowPos(app->m_window, windowLeft, windowTop);
 
-    glfwSetWindowUserPointer(app.m_window, &app);
-    glfwSetFramebufferSizeCallback(app.m_window, FramebufferResizeCallback);
+    glfwSetWindowUserPointer(app->m_window, app);
+    glfwSetFramebufferSizeCallback(app->m_window, FramebufferResizeCallback);
 
     // NOTE: SetVSync;
     glfwSwapInterval(1);
-    app.m_vSync = true;
+    app->m_vSync = true;
 
     // NOTE: Set MouseInputOptions
     if (glfwRawMouseMotionSupported())
-        glfwSetInputMode(app.m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
+        glfwSetInputMode(app->m_window, GLFW_RAW_MOUSE_MOTION, GLFW_TRUE);
 
     // NOTE: Set GLFW callbacks
-    glfwSetKeyCallback(app.m_window, InputKeyCallback);
-glfwSetMouseButtonCallback(app.m_window, InputMouseButtonCallback);
-glfwSetScrollCallback(app.m_window, InputScrollCallback);
-glfwSetCursorPosCallback(app.m_window, InputMouseCursorCallback);
+    glfwSetKeyCallback(app->m_window, InputKeyCallback);
+glfwSetMouseButtonCallback(app->m_window, InputMouseButtonCallback);
+glfwSetScrollCallback(app->m_window, InputScrollCallback);
+glfwSetCursorPosCallback(app->m_window, InputMouseCursorCallback);
 glfwSetJoystickCallback(InputSetJoystickCallback);
     
-    app.m_running = true;
+    app->m_running = true;
     glfwSetTime(0.0);
 }
 
-internal void Update(Application & app, float dt)
+internal void Update(Application * app, float dt)
 {
-    Input & input = app.m_input;
+    Input & input = app->m_input;
     
     if (KeyIsDown(input, GLFW_KEY_Q))
     {
-        app.m_running = false;
+        app->m_running = false;
     }
     
     real32 cameraMoveSpeed = 5.0f;
     real32 pitchSpeed = 2.0f * 50.0f;
     real32 yawSpeed = 2.0f * 50.0f;
-    Camera & camera = app.m_renderData.m_camera;
+    Camera & camera = app->m_renderData.m_camera;
     
     if (Abs(input.mouseScrollDelta) > 0)
     {
         real32 step = 3.0f;
-        camera.m_fovy -= step * input.mouseScrollDelta;
-        if (camera.m_fovy > 100.0f) camera.m_fovy = 100.0f;
-        if (camera.m_fovy < 1.0f) camera.m_fovy = 1.0f;
+        camera.m_fov -= step * input.mouseScrollDelta;
+        if (camera.m_fov > 100.0f) camera.m_fov = 100.0f;
+        if (camera.m_fov < 1.0f) camera.m_fov = 1.0f;
     }
     
     glm::vec3 forward = camera.m_forwardDirection;
     glm::vec3 right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
     
-    if (!app.m_editingImgui && MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
+    if (!app->m_editingImgui && MouseButtonDown(input, GLFW_MOUSE_BUTTON_RIGHT))
     {
         real32 sensitivity = 0.1f;
         glm::vec2 offset = input.mousePos - input.prevMousePos;
@@ -443,7 +445,7 @@ internal void Update(Application & app, float dt)
     right   = glm::cross(forward, glm::vec3(0.0f, 0.0f, 1.0f));
     glm::vec3 up = glm::cross(right, forward);
     
-    if (!app.m_editingImgui)
+    if (!app->m_editingImgui)
     {
     if (KeyIsDown(input, GLFW_KEY_W)) 
     {
@@ -484,17 +486,17 @@ internal void Update(Application & app, float dt)
     
 }
 
-internal void FixedUpdate(Application & app)
+internal void FixedUpdate(Application * app)
 {
-    for (uint32 i = 0; i < app.m_renderData.m_transforms.count; i++)
+    for (uint32 i = 0; i < app->m_renderData.m_transforms.count; i++)
     {
-        Transform & tr = app.m_renderData.m_transforms[i];
+        Transform & tr = app->m_renderData.m_transforms[i];
     if (tr.m_meshPositions.size() != tr.m_numCopies)
         GeneratePositions(tr.m_meshPositions, tr.m_numCopies);
     }
 }
 
-internal void Init(Application & app)
+internal void Init(Application * app)
 {
     InitWindow(app);
     InitInput(app);
@@ -503,19 +505,19 @@ internal void Init(Application & app)
     InitImGui(app);
     }
 
-internal void CleanUp(Application & app)
+internal void CleanUp(Application * app)
 {
     CleanUpImgui();
-    CleanUpVulkan(app.m_renderContext);
-    glfwDestroyWindow(app.m_window);
+    CleanUpVulkan(app->m_renderContext);
+    glfwDestroyWindow(app->m_window);
     glfwTerminate();
 }
 
-internal void MainLoop(Application & app)
+internal void MainLoop(Application * app)
 {
     real64 currentTime = glfwGetTime();
      real32 tick = 0.0f;
-    for ( ;app.m_running; )
+    for ( ;app->m_running; )
     {
         glfwPollEvents();
         
@@ -528,9 +530,9 @@ internal void MainLoop(Application & app)
         {
         char title[50];
         sprintf(title, "Vulkan %.2f ms %.1f fps", dt * 1000, 1.0f / dt);
-            glfwSetWindowTitle(app.m_window, title);
+            glfwSetWindowTitle(app->m_window, title);
             FixedUpdate(app);
-            tick += app.m_fixedTimeStep;
+            tick += app->m_fixedTimeStep;
         }
         
             UpdateImGui(app);
@@ -545,18 +547,18 @@ internal void MainLoop(Application & app)
         }
         
         // Rendering
-        DrawFrame(app, &app.m_renderData);
+        DrawFrame(app, &app->m_renderData);
         
-        app.m_running = app.m_running && !glfwWindowShouldClose(app.m_window);
+        app->m_running = app->m_running && !glfwWindowShouldClose(app->m_window);
         // NOTE: Reset/Update Input End of frame
-        app.m_input.mouseScrollDelta = 0.0f;
-        app.m_input.prevMousePos = app.m_input.mousePos;
+        app->m_input.mouseScrollDelta = 0.0f;
+        app->m_input.prevMousePos = app->m_input.mousePos;
         
     }
-    vkDeviceWaitIdle(app.m_renderContext.m_device);
+    vkDeviceWaitIdle(app->m_renderContext.m_device);
     }
 
-void RunApplication(Application & app)
+void RunApplication(Application * app)
 {
     // NOTE: Run Application
     Init(app);

@@ -37,6 +37,7 @@ struct Application
     bool   m_running = false;
     bool   m_editingImgui = false;
     
+    
     real32 m_fixedTimeStep = 0.1f;
     
     GLFWwindow  * m_window;
@@ -48,7 +49,7 @@ struct Application
 //====================================================
 //      NOTE: Application Functions
 //====================================================
-void RunApplication(Application & app);
+void RunApplication(Application * app);
 
 #define APPLICATION_H
 #endif

@@ -41,9 +41,9 @@ struct Camera
     glm::vec3 m_pos = {};
     glm::vec3 m_forwardDirection = { 0.0f, 1.0f, 0.0f };
     
-     real32 m_fovy = 45.0f;
+     real32 m_fov = 45.0f;
     real32 m_nearClip = 0.1f;
-     real32 m_farClip = 100.0f;
+    real32 m_farClip = 100.0f;
     real32 m_pitch = 0.0f;
     real32 m_yaw = 0.0f;
     
@@ -68,7 +68,10 @@ struct Fog
 
 struct RenderData 
 {
-    IRect m_renderWindowRect;
+    real32 m_screenX = 0;
+    real32 m_screenY = 0;
+    real32 m_screenWidth = 0.0f;
+    real32 m_screenHeight = 0.0f;
     glm::vec4 m_clearColor;
     Camera m_camera;
     Fog m_fog;
