@@ -154,14 +154,14 @@ struct VulkanContext
     
     // NOTE: Synchronization Object
     InFlights<VkSemaphore> m_imageAvailableSemaphores;
-    InFlights<VkSemaphore> m_renderFinishedSemaphores;
+    std::vector<VkSemaphore> m_renderFinishedSemaphores;
     InFlights<VkFence> m_inFlightFences;
     
     
     VkSampleCountFlagBits m_msaaSamples = VK_SAMPLE_COUNT_1_BIT;
     uint32 m_currentFrame = 0;
     
-     int64 m_shaderTimestamp;
+    int64 m_shaderTimestamp;
     int64 m_textureTimestamp;
     int64 m_modelTimestamp;
     
@@ -207,8 +207,8 @@ struct CreateGraphicsPipelineResult
 
 struct SyncObjects
 {
+    std::vector<VkSemaphore> m_renderFinishedSemaphores;
     Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_imageAvailableSemaphores;
-    Array<VkSemaphore, MAX_FRAMES_IN_FLIGHT> m_renderFinishedSemaphores;
     Array<VkFence, MAX_FRAMES_IN_FLIGHT>     m_inFlightFences;
 };
 

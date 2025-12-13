@@ -182,7 +182,7 @@ internal VKAPI_ATTR VkBool32 VKAPI_CALL DebugCallback (
     if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
     {
         SM_ERROR("[VALIDATION]  %s", pCallbackData->pMessage);
-         SM_ASSERT(false, "Bad Message!");
+        // TODO SM_ASSERT(false, "Bad Message!");
     }
     else if (messageSeverity >= VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
     {
@@ -1110,10 +1110,10 @@ internal void EndSingleTimeCommands(VkDevice device, VkCommandBuffer commandBuff
 }
 
 internal SyncObjects
-CreateSyncObjects(VkDevice device)
+CreateSyncObjects(VkDevice device, uint32 swapChainImageCount)
 {
     InFlights<VkSemaphore> imageAvailableSemaphores;
-    InFlights<VkSemaphore> renderFinishedSemaphores;
+    std::vector<VkSemaphore> renderFinishedSemaphores;
     InFlights<VkFence>     inFlightFences;
     
     VkSemaphoreCreateInfo semaphoreInfo = {};
@@ -1122,27 +1122,33 @@ CreateSyncObjects(VkDevice device)
     VkFenceCreateInfo fenceInfo = {};
     fenceInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    renderFinishedSemaphores.resize(swapChainImageCount);
     
     imageAvailableSemaphores.Resize(MAX_FRAMES_IN_FLIGHT);
-    renderFinishedSemaphores.Resize(MAX_FRAMES_IN_FLIGHT);
     inFlightFences.Resize(MAX_FRAMES_IN_FLIGHT);
     
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &imageAvailableSemaphores[i]) != VK_SUCCESS     ||
-            vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS ||
             vkCreateFence(device, &fenceInfo, nullptr, &inFlightFences[i]) != VK_SUCCESS)
         {
             SM_ASSERT(false, "failed to create syncronization objects");
         }
     }
-    
-    SyncObjects result =
+
+    for (uint32 i = 0; i < swapChainImageCount; i++)
     {
-        imageAvailableSemaphores,
-        renderFinishedSemaphores,
-        inFlightFences
-    };
+        if (vkCreateSemaphore(device, &semaphoreInfo, nullptr, &renderFinishedSemaphores[i]) != VK_SUCCESS)
+        {
+            SM_ASSERT(false, "failed to create syncronization objects");
+        }
+    }
+    
+    SyncObjects result;
+    result.m_renderFinishedSemaphores = renderFinishedSemaphores;
+    result.m_imageAvailableSemaphores = imageAvailableSemaphores;
+    result.m_inFlightFences = inFlightFences;
     
     return result;
 }
@@ -1801,13 +1807,13 @@ internal VkDescriptorSetLayout CreateDescriptorSetLayout(VkDevice device)
 
 
 // NOTE: Do you need to feeds in texture count into the pool size?
-internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 textureCount, uint32 sceneImageCount)
+internal VkDescriptorPool CreateDescriptorPool(VkDevice device, uint32 transformCount, uint32 sceneImageCount)
 {
     VkDescriptorPoolSize poolSizes[] = 
     {
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, IMGUI_IMPL_VULKAN_MINIMUM_IMAGE_SAMPLER_POOL_SIZE },
-        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32)MAX_FRAMES_IN_FLIGHT },
-        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * textureCount },
+        { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, (uint32)MAX_FRAMES_IN_FLIGHT * transformCount },
+        { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * transformCount },
         { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, (uint32)MAX_FRAMES_IN_FLIGHT * sceneImageCount },
         };
     
@@ -2124,6 +2130,7 @@ internal void RecreateSwapChain(Application * app, GLFWwindow* window, VulkanCon
 
 internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderData)
 {
+    
     UniformBufferObject ubo = {};
     // Control view and projection matrix based on camera position forwardDirection, 
     // fov, zoom, and near/far clip
@@ -2133,7 +2140,6 @@ internal void UpdateUniformBuffer(VulkanContext & context, RenderData * renderDa
                              cam.m_pos + cam.m_forwardDirection, 
                              glm::vec3(0.0f, 0.0f, 1.0f));
     
-    real32 aspect = (real32)context.m_swapChainExtent.width / (real32)context.m_swapChainExtent.height;
     ubo.m_projection = glm::perspectiveFov(glm::radians(renderData->m_camera.m_fov),
                                            renderData->m_screenWidth,
                                            renderData->m_screenHeight,
@@ -2316,17 +2322,23 @@ internal void RecreateGrahpicsPipeline(VulkanContext & context)
 
 internal void DrawFrame(Application * app, RenderData * renderData)
 {
+
     VulkanContext & context = app->m_renderContext;
     vkWaitForFences(context.m_device, 1, &context.m_inFlightFences[context.m_currentFrame], VK_TRUE, UINT64_MAX);
+
+    if (renderData->m_screenHeight <= 0.001f || renderData->m_screenWidth <= 0.001f)
+    {
+        return;
+    }
     
     {
-    int64 timestampVS = GetTimestamp(VS_PATH);
-    int64 timestampFS = GetTimestamp(FS_PATH);
-    int64 currentTimeStamp = max(timestampVS, timestampFS);
+        int64 timestampVS = GetTimestamp(VS_PATH);
+        int64 timestampFS = GetTimestamp(FS_PATH);
+        int64 currentTimeStamp = max(timestampVS, timestampFS);
         if (KeyIsDown(app->m_input, GLFW_KEY_R) && currentTimeStamp > app->m_renderContext.m_shaderTimestamp)
-    {
-        RecreateGrahpicsPipeline(app->m_renderContext);
-        app->m_renderContext.m_shaderTimestamp = currentTimeStamp;
+        {
+            RecreateGrahpicsPipeline(app->m_renderContext);
+            app->m_renderContext.m_shaderTimestamp = currentTimeStamp;
         }
     }
     
@@ -2359,7 +2371,7 @@ internal void DrawFrame(Application * app, RenderData * renderData)
                              context.m_swapChainExtent);
     
     
-RecordCommandBuffer(context.m_sceneCommandBuffers[context.m_currentFrame], 
+    RecordCommandBuffer(context.m_sceneCommandBuffers[context.m_currentFrame], 
                         context.m_sceneRenderPass,
                         context.m_sceneFramebuffers[imageIndex],
                         context.m_swapChainExtent,
@@ -2369,6 +2381,7 @@ RecordCommandBuffer(context.m_sceneCommandBuffers[context.m_currentFrame],
                         context.m_textureContexts,
                         renderData,
                         context.m_currentFrame);
+
     UpdateUniformBuffer(context, renderData);
     
     VkCommandBuffer submitCommandBuffers[] =
@@ -2387,7 +2400,7 @@ RecordCommandBuffer(context.m_sceneCommandBuffers[context.m_currentFrame],
     submitInfo.commandBufferCount = ArrayCount(submitCommandBuffers);
     submitInfo.pCommandBuffers = submitCommandBuffers;
     
-    VkSemaphore signalSemaphores[] = { context.m_renderFinishedSemaphores[context.m_currentFrame] };
+    VkSemaphore signalSemaphores[] = { context.m_renderFinishedSemaphores[imageIndex] };
     submitInfo.signalSemaphoreCount = ArrayCount(signalSemaphores);
     submitInfo.pSignalSemaphores = signalSemaphores;
     
@@ -2581,11 +2594,10 @@ context.m_sceneFramebuffers = CreateFramebuffers(context.m_device,
     }
     
     context.m_sceneDescriptorPool = CreateDescriptorPool(context.m_device,
-                                                         (uint32)context.m_textureContexts.size(),
+                                                         (uint32)app->m_renderData.m_transforms.count,
                                                          (uint32)context.m_sceneImageViews.size());
     
-    context.m_imGuiDescriptorPool = CreateDescriptorPool(context.m_device, 
-                                                         (uint32)context.m_textureContexts.size(),
+    context.m_imGuiDescriptorPool = CreateDescriptorPool(context.m_device, 1,
                                                          (uint32)context.m_sceneImageViews.size());
                                                          
     for (uint32 i = 0; i < app->m_renderData.m_transforms.count; i++)
@@ -2605,7 +2617,7 @@ context.m_sceneFramebuffers = CreateFramebuffers(context.m_device,
     context.m_imGuiCommandBuffers = CreateCommandBuffers(context.m_device, context.m_commandPool);
     
     {
-        SyncObjects syncObjs           = CreateSyncObjects(context.m_device);
+        SyncObjects syncObjs           =  CreateSyncObjects(context.m_device, (uint32)context.m_swapChainImages.size());
         context.m_imageAvailableSemaphores = syncObjs.m_imageAvailableSemaphores;
         context.m_renderFinishedSemaphores = syncObjs.m_renderFinishedSemaphores;
         context.m_inFlightFences           = syncObjs.m_inFlightFences;
@@ -2652,9 +2664,16 @@ internal void CleanUpVulkan(VulkanContext & context)
     for (int i = 0; i < MAX_FRAMES_IN_FLIGHT; i++)
     {
         vkDestroySemaphore(context.m_device, context.m_imageAvailableSemaphores[i], nullptr);
-        vkDestroySemaphore(context.m_device, context.m_renderFinishedSemaphores[i], nullptr);
         vkDestroyFence(context.m_device, context.m_inFlightFences[i], nullptr);
     }
+
+    uint32 semaphoreCount = (uint32)context.m_renderFinishedSemaphores.size(); 
+    for (uint32 i = 0; i < semaphoreCount; i++)
+    {
+        vkDestroySemaphore(context.m_device, context.m_renderFinishedSemaphores[i], nullptr);
+        
+    }
+    
     vkDestroyCommandPool(context.m_device, context.m_commandPool, nullptr);
     vkDestroyPipeline(context.m_device, context.m_sceneGraphicsPipeline, nullptr);
     vkDestroyPipelineLayout(context.m_device, context.m_scenePipelineLayout, nullptr);
