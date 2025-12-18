@@ -30,6 +30,9 @@ Then, for the subsequent builds run the command
 build.bat
 ```
 
+# video showcase
+[link](https://youtu.be/QEf5WFOsl9A)
+
 # screen shots
 
 - Texture Mapping + load .obj file
