@@ -1,6 +1,6 @@
-# GLFW Desktop Application Templates
+# My Vulkan Renderer Application
 
-A desktop application template using GLFW and Vulkan
+A desktop graphics renderer using GLFW and Vulkan
 
 Currently, the application has only been tested on Windows.
 
