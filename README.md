@@ -1,6 +1,6 @@
 # My Vulkan Renderer Application
 
-A desktop graphics renderer using GLFW and Vulkan
+A desktop graphics renderer using Vulkan graphics API
 
 Currently, the application has only been tested on Windows.
 
